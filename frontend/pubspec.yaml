@@ -1,0 +1,56 @@
+name: gameofbraza
+description: GameOfBraza TRPG Character Sheet App
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.3.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+
+  # State management
+  flutter_riverpod: ^3.3.2
+  riverpod_annotation: ^4.0.3
+
+  # Routing
+  go_router: ^17.3.0
+
+  # HTTP
+  dio: ^5.7.0
+  retrofit: ^4.3.0
+
+  # Serialization
+  freezed_annotation: ^3.1.0
+  json_annotation: ^4.9.0
+
+  # Rich text
+  flutter_quill: ^11.5.1
+
+  # Icons
+  material_symbols_icons: ^4.2719.1
+
+  # Storage
+  shared_preferences: ^2.3.2
+
+  # UI utils
+  cached_network_image: ^3.4.1
+  image_picker: ^1.1.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  build_runner: ^2.4.12
+  freezed: ^3.2.6-dev.1
+  json_serializable: ^6.8.0
+  retrofit_generator: ^10.2.7
+  riverpod_generator: ^4.0.4
+  mocktail: ^1.0.4
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+  generate: true
