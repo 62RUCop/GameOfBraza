@@ -1,89 +1,75 @@
 # CLAUDE.md
 
-Цифровая анкета персонажа для настольной RPG-системы. Полное ТЗ — в `docs/TZ.md` (читай его при работе над любой игровой механикой). Этот файл — правила, которые действуют всегда.
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-> Язык: общаемся и комментируем по-русски; код, имена, коммиты — по-английски.
-> Стек зафиксирован на **Next.js-фуллстек монорепо** (App Router). Vite не используется (его роль закрывает Next). Остальной стек из обсуждения совместим.
+## Project Overview
 
----
+**GameOfBraza** is a web-first (mobile-friendly) digital character sheet app for a custom tabletop RPG system. The full specification is in [TZ_TRPG_Character_App.md](TZ_TRPG_Character_App.md) (Russian). Key architectural principle: this is a **data storage and support tool, not a strict game engine with anti-cheat** — GM overrides are a first-class feature, not an exception.
 
-## 🔴 Золотые правила (инварианты движка — не нарушать)
+Stack: **Flutter** (web priority, PWA/mobile wrapper later). Backend TBD (REST API assumed per spec).
 
-Эти правила — суть приложения. Если задача подталкивает их нарушить, остановись и переспроси.
-
-1. **Вычисляемые значения — рекомендации, а не ограничения.** Никогда не добавляй валидацию, которая *запрещает* пользователю сохранить значение, и никогда не «зажимай» (clamp) ввод. HP может быть больше максимума (оверхил), значения могут быть отрицательными. Выход за расчётные рамки — это **нейтральная подсветка** «вероятно, в игре произошло незапланированное событие», НЕ ошибка.
-2. **Вся игровая математика живёт ТОЛЬКО в `packages/rules`.** И веб, и API импортируют формулы оттуда. Никогда не дублируй и не переписывай расчёты (HP, мана, ОД, тиры, попадание/урон, бабл, классы) в другом месте. Константы берутся из `RuleConfig`, не хардкодом.
-3. **Расчёт ≠ хранимое значение.** Хранится то, что ввёл пользователь (`value`). Формула даёт рядом `suggestedValue` — только для предзаполнения и сравнения. Это разные поля, не путать.
-4. **Никаких жёстких блоков.** Тир снаряжения/скиллов, лимит ячеек способностей, распределение характеристик — это подсказки, а не запреты. Любой предмет можно надеть, любой скилл выучить, любую характеристику выставить (в пределах типа данных, `0–255` для характеристик).
-5. **Смена константы в `RuleConfig` не каскадит.** Меняется только `suggestedValue`; сохранённые фактические значения персонажей не трогаем автоматически.
-6. **Роли = область видимости, не набор прав на правку.** `player` видит/правит только свои персонажи (`owner_id`), `gm` — все персонажи кампании + владеет своими NPC, `admin` — плюс `RuleConfig` и справочники. `owner_id` изменяем.
-7. **Это инструмент-хранилище, а не строгий античит-движок.** Не строй серверную «крепость»: достаточно проверки роли/владения на запрос. Не относись к каждому запросу как к враждебному.
-
----
-
-## Структура монорепо
-
-```
-apps/
-  web/                 Next.js (App Router): UI + серверные роуты/действия
-packages/
-  rules/               ★ чистые функции игровых формул (§3 ТЗ) + типы. Сердце движка.
-  db/                  Prisma schema, миграции, сиды (в т.ч. из Gob_markets.csv)
-  ui/                  общие компоненты (shadcn/ui), при необходимости
-  config/              общие eslint/tsconfig/tailwind пресеты
-docs/
-  TZ.md                спецификация
-```
-
-`packages/rules` не зависит ни от веба, ни от БД — только чистые функции и типы. Это позволяет покрыть его тестами целиком и переиспользовать на обеих сторонах.
-
----
-
-## Команды
+## Flutter Commands
 
 ```bash
-pnpm install              # установка (ТОЛЬКО pnpm; не npm/yarn)
-pnpm dev                  # запуск всего в dev (turbo)
-pnpm build                # сборка
-pnpm test                 # юнит-тесты (Vitest)
-pnpm test:e2e             # Playwright
-pnpm lint                 # ESLint
-pnpm typecheck            # tsc --noEmit по всем пакетам
-pnpm db:migrate           # prisma migrate dev
-pnpm db:seed              # сиды справочников
+flutter pub get          # Install dependencies
+flutter run -d chrome    # Run web app in Chrome (primary target)
+flutter build web        # Build for production
+flutter test             # Run all tests
+flutter test test/path/to/test_file.dart  # Run single test
+flutter analyze          # Lint / static analysis
 ```
 
-**Перед коммитом** должны проходить: `pnpm lint`, `pnpm typecheck`, `pnpm test`. Не коммить с падающими проверками.
+## Domain Model
 
----
+The spec defines these core entities (backend source of truth):
 
-## Конвенции
+**Character** — central entity owned by an `Account` (player/gm/admin roles). One player can have multiple characters.
 
-- **TypeScript strict** везде. Никаких `any` без явной причины в комментарии.
-- **Валидация — Zod**, схемы общие между клиентом и сервером. Zod проверяет *тип/формат*, но НЕ навязывает игровые правила (см. золотое правило 1).
-- **Серверное состояние** — TanStack Query; **локальный UI-стейт** — Zustand; **формы** — react-hook-form + Zod.
-- **JSONB-поля** (`stat_bonuses`, `overrides`, `active_effects`, эффект бонуса класса) типизируй через Zod-схему, а не свободный `Record<string, unknown>`.
-- **Деньги** — единое нормализованное число в бронзе (`1 золото = 10 серебра = 100 бронзы`); номиналы — функция форматирования. Любое изменение баланса → запись в `CurrencyTransaction` с обязательным `money_target`.
-- **Аудит-лог** на изменения характеристик, снаряжения, валюты, репутации, классовых бонусов.
-- **i18n** — все строки через i18next; русский первым, но без хардкода текста в компонентах.
-- **Веб-первый, mobile-friendly, PWA** — проверяй вёрстку на узком экране; справочники кэшируются на клиенте.
-- **Тесты `packages/rules` — исчерпывающие.** Формулы тонкие (двойная шкала тиров, бабл по D100, классы по порогам `{6,9,12,20}`) — каждая граница покрыта кейсом.
+**Attributes** — 6 base stats (STR, DEX, INT, SPI, END, LUC), stored as raw values 0–255. No `*_bonus` fields — all bonuses are computed at read time into `effective_value`. Every computed/derived value has a `manual_override` flag: when set, the value is pinned and won't be recalculated when its base changes.
 
----
+**Derived values** (computed by backend from config, never hardcoded):
+- `HP_max = STR × 4`; `Mana_max = SPI × 10`; `AP_max = END × 10`; `Slots = INT`
+- `attribute_power_tier(v)` → 0 if v<3, else `min(4, floor((v−3)/3)+1)` — caps at Tier 4
 
-## Стек (версии — в `package.json`, не полагайся на память)
+**Tier system** (fixed 6-level scale 0–5, mapped to dice d4/d6/d12/d20/d60/d100). Equipment/skill tier vs character attribute tier determines equip eligibility: hard block by default (item stays in backpack), GM can override.
 
-Frontend: React + TypeScript, Tailwind + shadcn/ui (Radix), TanStack Query, Zustand, react-hook-form, Zod, i18next, PWA (Serwist/next-pwa).
-Backend: Next.js App Router (роуты/server actions). БД: PostgreSQL + Prisma. Auth: Auth.js (роль полем, видимость по `owner_id`). Файлы: S3-совместимое (R2), загрузка через presigned URL. Тесты: Vitest + Playwright.
+**Class bonuses** — triggered at attribute thresholds `{6, 9, 12, 20}` (max class index 3, never grows beyond threshold 20). Results contain random rolls — stored once in `ClassBonusRecord`, not recalculated.
 
----
+**ItemTemplate** (admin-managed catalog) + **ItemInstance** (per-character, can override template values or exist without a template). Reference price is informational only; actual price stored in `ItemInstance.acquired_price`. All money changes logged to `CurrencyTransaction` with mandatory `money_target` field. Currency stored normalized in bronze (1 gold = 10 silver = 100 bronze).
 
-## Чего НЕ делать
+**Skills** (`CharacterSkill` links to `Skill` catalog): blocked if `attribute_power_tier(INT) < skill.tier`. Skills with `occupies_slot=false` (innate, guild) don't count against `Slots = INT`. Per-character skill categorization stored in `CharacterSkillTag`.
 
-- Не использовать `npm`/`yarn` — только `pnpm`.
-- Не редактировать файлы в `docs/` без явной просьбы.
-- Не трогать `.env*` и не коммитить секреты; для новых переменных обновляй `.env.example`.
-- Не добавлять блокирующую игровую валидацию (см. золотые правила 1 и 4).
-- Не дублировать формулы вне `packages/rules`.
-- Не удалять данные физически — soft-delete.
-- Не коммитить без прохождения lint/typecheck/test.
+**RuntimeState** — separate table for frequently-changing values: current HP/mana/AP, satiety, bubble status.
+
+## Key Business Rules
+
+- **Point-buy at creation**: all stats start at 3, cost to raise from v: `1 if v<4, else v−2`. Symmetric on lowering.
+- **Unallocated points**: GM grants pools; player allocates when they want (no forced timing). Spending into a stat requires explicit player confirmation.
+- **Bubble mechanic**: `persist_chance = min(100, bubble_charges × 10)`. On hit: roll d100; if > persist_chance, bubble drops.
+- **Satiety**: range `[−HP_max, +(STR+END)]`. On location transition with satiety < 0: take `|satiety|` damage.
+- **Pet leveling**: `food_required_next = base_pet_food_unit × 2^(level−1)`, where `base_pet_food_unit` is in `RuleConfig`.
+- **Reputation**: scale −10…+10 per faction; price multipliers are per item-category curves (not a global constant), stored in `RuleConfig`.
+- **RuleConfig**: all numeric constants (HP per STR, mana per SPI, class thresholds, point costs, reputation curves) live here — editable by admin without a code release.
+
+## UI Structure
+
+Navigation: Character list → Character sheet (tabs: Description · Stats · Equipment · Skills · Backpack · Reputation · Notes) + GM Panel + Admin Panel.
+
+- **Stats tab**: 20-cell ribbon per attribute; values >20 add a second visual layer. Manual-override values show a "pinned" icon with a reset button.
+- **Equipment tab**: 9-slot paper doll (head/body/legs/vambraces/weapon_left/weapon_right/ring/amulet/pet). Items above accessible tier show a lock icon with "need N [stat]" tooltip.
+- **Skills tab**: grouped by player's personal categories (up to 10, like HoMM spell books). Slot counter shows "X of INT used".
+- **Backpack tab**: 6 free-text slots (no overflow validation). Currency block at top with gold/silver/bronze display.
+- **Dice widget**: button to roll + manual result edit (supports physical dice use at the table).
+
+## RBAC
+
+- `player`: own characters only; point-buy allocation with confirmation
+- `gm`: all characters in campaign, NPC creation, direct stat edits (with optional `gm_skip_confirmation` profile setting), manual value overrides
+- `admin`: catalogs (`ItemTemplate`, `Skill`, `Race`, `Faction`, `WildMagicCard`, `SkillCategory`) and `RuleConfig`
+
+## Out of Scope (MVP)
+
+- Real-time multi-device sync at the table
+- Inter-character item/currency transfers (handled manually by players)
+- Full market simulation (§5.13)
+- Native iOS/Android apps (Flutter web + PWA first)
