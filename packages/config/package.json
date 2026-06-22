@@ -1,0 +1,12 @@
+{
+  "name": "@gob/config",
+  "private": true,
+  "version": "0.0.0",
+  "exports": {
+    "./eslint": "./eslint.js",
+    "./tsconfig/base": "./tsconfig/base.json",
+    "./tsconfig/nextjs": "./tsconfig/nextjs.json",
+    "./tsconfig/library": "./tsconfig/library.json",
+    "./tailwind": "./tailwind.js"
+  }
+}

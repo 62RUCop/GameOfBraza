@@ -1,0 +1,585 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ───────────────────────────────────────────────────────────────────
+
+enum Role {
+  player
+  gm
+  admin
+}
+
+enum SlotType {
+  head
+  body
+  legs
+  vambraces
+  weapon_left
+  weapon_right
+  ring
+  amulet
+  pet
+}
+
+enum StatAttribute {
+  strength
+  dexterity
+  intelligence
+  spirit
+  endurance
+  luck
+}
+
+enum SkillType {
+  innate
+  acquired
+}
+
+enum ItemLocation {
+  backpack
+  equipped_head
+  equipped_body
+  equipped_legs
+  equipped_vambraces
+  equipped_weapon_left
+  equipped_weapon_right
+  equipped_ring
+  equipped_amulet
+  equipped_pet
+}
+
+enum BackpackItemType {
+  food
+  scroll
+  herb
+  potion
+  misc
+  quest
+  other
+}
+
+// ─── Account & Auth ───────────────────────────────────────────────────────────
+
+model Account {
+  id                String    @id @default(cuid())
+  email             String    @unique
+  emailVerified     DateTime?
+  name              String?
+  image             String?
+  role              Role      @default(player)
+  gmSkipConfirmation Boolean  @default(false)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  characters        Character[]
+  sessions          Session[]
+  auths             AuthAccount[]
+
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         Account  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model AuthAccount {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user Account @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("auth_accounts")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+// ─── Directories ──────────────────────────────────────────────────────────────
+
+model Race {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?  @db.Text
+  icon        String?
+  deletedAt   DateTime?
+
+  characters  Character[]
+
+  @@map("races")
+}
+
+model Faction {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?  @db.Text
+  deletedAt   DateTime?
+
+  reputations Reputation[]
+
+  @@map("factions")
+}
+
+model SkillCategory {
+  id   String @id @default(cuid())
+  name String @unique
+
+  characterSkillTags CharacterSkillTag[]
+
+  @@map("skill_categories")
+}
+
+model Skill {
+  id             String        @id @default(cuid())
+  name           String
+  description    String?       @db.Text
+  skillType      SkillType
+  occupiesSlot   Boolean       @default(true)
+  tier           Int
+  guildId        String?
+  tiedAttribute  StatAttribute?
+  manaCost       Int?
+  apCost         Int?
+  icon           String?
+  deletedAt      DateTime?
+
+  characterSkills    CharacterSkill[]
+  characterSkillTags CharacterSkillTag[]
+  itemTemplates      ItemTemplateSkill[]
+  petAbilities       Pet[]
+  wildMagicCards     WildMagicCard[]
+
+  @@map("skills")
+}
+
+model WildMagicCard {
+  id          String  @id @default(cuid())
+  name        String
+  description String? @db.Text
+  effect      String? @db.Text
+  skillId     String?
+  skill       Skill?  @relation(fields: [skillId], references: [id])
+  deletedAt   DateTime?
+
+  drawEntries WildMagicDrawCard[]
+
+  @@map("wild_magic_cards")
+}
+
+model ItemTemplate {
+  id                  String        @id @default(cuid())
+  name                String
+  slotType            SlotType
+  weaponFamily        String?
+  isTwoHanded         Boolean       @default(false)
+  tier                Int
+  requiredAttribute   StatAttribute?
+  damageDice          String?
+  bonusCritDice       String?
+  scalingAttribute    StatAttribute?
+  scalingCoefficient  Decimal?      @db.Decimal(5, 3)
+  statBonuses         Json?
+  hungerRestored      Int?
+  referencePrice      Decimal       @default(0) @db.Decimal(12, 2)
+  description         String?       @db.Text
+  icon                String?
+  deletedAt           DateTime?
+
+  grantedAbilities    ItemTemplateSkill[]
+  instances           ItemInstance[]
+
+  @@map("item_templates")
+}
+
+model ItemTemplateSkill {
+  templateId String
+  skillId    String
+
+  template ItemTemplate @relation(fields: [templateId], references: [id])
+  skill    Skill        @relation(fields: [skillId], references: [id])
+
+  @@id([templateId, skillId])
+  @@map("item_template_skills")
+}
+
+// ─── Rule Config ─────────────────────────────────────────────────────────────
+
+model RuleConfig {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     Json
+  updatedAt DateTime @updatedAt
+  updatedBy String?
+
+  @@map("rule_config")
+}
+
+// ─── Campaign ─────────────────────────────────────────────────────────────────
+
+model Campaign {
+  id        String   @id @default(cuid())
+  name      String
+  gmId      String
+  createdAt DateTime @default(now())
+  deletedAt DateTime?
+
+  characters CampaignCharacter[]
+
+  @@map("campaigns")
+}
+
+model CampaignCharacter {
+  campaignId  String
+  characterId String
+
+  campaign  Campaign  @relation(fields: [campaignId], references: [id])
+  character Character @relation(fields: [characterId], references: [id])
+
+  @@id([campaignId, characterId])
+  @@map("campaign_characters")
+}
+
+// ─── Character ────────────────────────────────────────────────────────────────
+
+model Character {
+  id                 String    @id @default(cuid())
+  ownerId            String
+  name               String
+  raceId             String?
+  isNpc              Boolean   @default(false)
+  appearanceImage    String?
+  quenta             String?   @db.Text
+  mainQuest          String?   @db.Text
+  questProgressStage Int       @default(0)
+  playerNotes        String?   @db.Text
+  unallocatedPoints  Int       @default(0)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  deletedAt          DateTime?
+
+  owner      Account @relation(fields: [ownerId], references: [id])
+  race       Race?   @relation(fields: [raceId], references: [id])
+
+  attributes    CharacterAttributes?
+  runtimeState  RuntimeState?
+  currency      Currency?
+  pet           Pet?
+  innateAbility InnateAbility?
+
+  equipmentSlots     ItemInstance[]
+  characterSkills    CharacterSkill[]
+  characterSkillTags CharacterSkillTag[]
+  backpackSlots      BackpackSlot[]
+  reputations        Reputation[]
+  classBonusRecords  ClassBonusRecord[]
+  wildMagicDraws     WildMagicDraw[]
+  currencyTransactions CurrencyTransaction[]
+  auditLogs          AuditLog[]
+  campaigns          CampaignCharacter[]
+
+  @@map("characters")
+}
+
+// ─── Attributes ───────────────────────────────────────────────────────────────
+
+model CharacterAttributes {
+  characterId String @id
+  strength    Int    @default(3)
+  dexterity   Int    @default(3)
+  intelligence Int   @default(3)
+  spirit      Int    @default(3)
+  endurance   Int    @default(3)
+  luck        Int    @default(3)
+  updatedAt   DateTime @updatedAt
+
+  character Character @relation(fields: [characterId], references: [id])
+
+  @@map("character_attributes")
+}
+
+// ─── Runtime State ────────────────────────────────────────────────────────────
+
+/// Stores current (live) values. Each derived max has a manual_override pair.
+model RuntimeState {
+  characterId String @id
+
+  currentHp   Int @default(0)
+  currentMana Int @default(0)
+  currentAp   Int @default(0)
+  satietyCurrent Int @default(0)
+  bubbleActive Boolean @default(false)
+  bubblePersistChanceCurrent Int @default(0)
+  activeEffects Json @default("[]")
+
+  // hp_max pair
+  hpMaxComputed      Int @default(0)
+  hpMaxOverride      Int?
+  hpMaxManualOverride Boolean @default(false)
+  hpMaxOverrideAuthor String?
+  hpMaxOverrideAt    DateTime?
+
+  // mana_max pair
+  manaMaxComputed      Int @default(0)
+  manaMaxOverride      Int?
+  manaMaxManualOverride Boolean @default(false)
+  manaMaxOverrideAuthor String?
+  manaMaxOverrideAt    DateTime?
+
+  // ap_max pair
+  apMaxComputed      Int @default(0)
+  apMaxOverride      Int?
+  apMaxManualOverride Boolean @default(false)
+  apMaxOverrideAuthor String?
+  apMaxOverrideAt    DateTime?
+
+  // dodge pair
+  dodgeComputed      Int @default(0)
+  dodgeOverride      Int?
+  dodgeManualOverride Boolean @default(false)
+  dodgeOverrideAuthor String?
+  dodgeOverrideAt    DateTime?
+
+  // universal armor pair
+  armorComputed      Int @default(0)
+  armorOverride      Int?
+  armorManualOverride Boolean @default(false)
+  armorOverrideAuthor String?
+  armorOverrideAt    DateTime?
+
+  // bubble charges
+  bubbleCharges Int @default(0)
+
+  updatedAt DateTime @updatedAt
+
+  character Character @relation(fields: [characterId], references: [id])
+
+  @@map("runtime_states")
+}
+
+// ─── Currency ─────────────────────────────────────────────────────────────────
+
+model Currency {
+  characterId   String  @id
+  balanceBronze Decimal @default(0) @db.Decimal(12, 2)
+
+  character Character @relation(fields: [characterId], references: [id])
+
+  @@map("currencies")
+}
+
+model CurrencyTransaction {
+  id                  String   @id @default(cuid())
+  characterId         String
+  amountBronze        Decimal  @db.Decimal(12, 2)
+  moneyTarget         String
+  relatedItemInstanceId String?
+  createdBy           String
+  createdAt           DateTime @default(now())
+
+  character    Character     @relation(fields: [characterId], references: [id])
+  itemInstance ItemInstance? @relation(fields: [relatedItemInstanceId], references: [id])
+
+  @@map("currency_transactions")
+}
+
+// ─── Equipment ────────────────────────────────────────────────────────────────
+
+model ItemInstance {
+  id          String   @id @default(cuid())
+  characterId String
+  templateId  String?
+  overrides   Json?
+  acquiredPrice Decimal? @db.Decimal(12, 2)
+  location    ItemLocation @default(backpack)
+  createdAt   DateTime @default(now())
+
+  character  Character    @relation(fields: [characterId], references: [id])
+  template   ItemTemplate? @relation(fields: [templateId], references: [id])
+
+  currencyTransactions CurrencyTransaction[]
+
+  @@map("item_instances")
+}
+
+// ─── Backpack ─────────────────────────────────────────────────────────────────
+
+model BackpackSlot {
+  id          String          @id @default(cuid())
+  characterId String
+  slotIndex   Int
+  itemName    String
+  itemType    BackpackItemType @default(misc)
+  description String?         @db.Text
+  quantity    Int             @default(1)
+  icon        String?
+
+  character Character @relation(fields: [characterId], references: [id])
+
+  @@unique([characterId, slotIndex])
+  @@map("backpack_slots")
+}
+
+// ─── Skills ───────────────────────────────────────────────────────────────────
+
+model CharacterSkill {
+  id          String   @id @default(cuid())
+  characterId String
+  skillId     String
+  acquiredAt  DateTime @default(now())
+
+  character Character @relation(fields: [characterId], references: [id])
+  skill     Skill     @relation(fields: [skillId], references: [id])
+
+  @@unique([characterId, skillId])
+  @@map("character_skills")
+}
+
+model CharacterSkillTag {
+  characterId String
+  skillId     String
+  categoryId  String
+
+  character Character     @relation(fields: [characterId], references: [id])
+  skill     Skill         @relation(fields: [skillId], references: [id])
+  category  SkillCategory @relation(fields: [categoryId], references: [id])
+
+  @@id([characterId, skillId, categoryId])
+  @@map("character_skill_tags")
+}
+
+// ─── Wild Magic ───────────────────────────────────────────────────────────────
+
+model WildMagicDraw {
+  id            String   @id @default(cuid())
+  characterId   String
+  chosenCardId  String?
+  drawnAt       DateTime @default(now())
+
+  character Character          @relation(fields: [characterId], references: [id])
+  drawnCards WildMagicDrawCard[]
+
+  @@map("wild_magic_draws")
+}
+
+model WildMagicDrawCard {
+  drawId String
+  cardId String
+
+  draw WildMagicDraw @relation(fields: [drawId], references: [id])
+  card WildMagicCard @relation(fields: [cardId], references: [id])
+
+  @@id([drawId, cardId])
+  @@map("wild_magic_draw_cards")
+}
+
+// ─── Class Bonus Records ──────────────────────────────────────────────────────
+
+model ClassBonusRecord {
+  id              String        @id @default(cuid())
+  characterId     String
+  attribute       StatAttribute
+  classIndex      Int
+  rollDiceFormula String?
+  rolledValues    Json          @default("[]")
+  rolledSum       Int           @default(0)
+  resultingEffect String?
+  appliedAt       DateTime      @default(now())
+
+  character Character @relation(fields: [characterId], references: [id])
+
+  @@unique([characterId, attribute, classIndex])
+  @@map("class_bonus_records")
+}
+
+// ─── Reputation ───────────────────────────────────────────────────────────────
+
+model Reputation {
+  id          String   @id @default(cuid())
+  characterId String
+  factionId   String
+  value       Int      @default(0)
+
+  character Character @relation(fields: [characterId], references: [id])
+  faction   Faction   @relation(fields: [factionId], references: [id])
+
+  @@unique([characterId, factionId])
+  @@map("reputations")
+}
+
+// ─── Pet ─────────────────────────────────────────────────────────────────────
+
+model Pet {
+  id              String  @id @default(cuid())
+  characterId     String  @unique
+  name            String
+  species         String?
+  icon            String?
+  level           Int     @default(1)
+  foodProgress    Int     @default(0)
+  statBonuses     Json    @default("{}")
+  abilitySkillId  String?
+
+  character Character @relation(fields: [characterId], references: [id])
+  ability   Skill?    @relation(fields: [abilitySkillId], references: [id])
+
+  @@map("pets")
+}
+
+// ─── Innate Ability ───────────────────────────────────────────────────────────
+
+model InnateAbility {
+  id          String  @id @default(cuid())
+  characterId String  @unique
+  name        String
+  description String? @db.Text
+  currentRank Int     @default(0)
+
+  character Character @relation(fields: [characterId], references: [id])
+
+  @@map("innate_abilities")
+}
+
+// ─── Audit Log ────────────────────────────────────────────────────────────────
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  characterId String
+  actorId     String
+  action      String
+  field       String?
+  oldValue    Json?
+  newValue    Json?
+  createdAt   DateTime @default(now())
+
+  character Character @relation(fields: [characterId], references: [id])
+
+  @@map("audit_logs")
+}
