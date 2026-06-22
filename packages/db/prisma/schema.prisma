@@ -25,6 +25,7 @@ enum SlotType {
   ring
   amulet
   pet
+  consumable
 }
 
 enum StatAttribute {

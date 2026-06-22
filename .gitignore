@@ -82,3 +82,5 @@ Thumbs.db
 .vscode/*
 !.vscode/extensions.json
 !.vscode/settings.json
+# Client spreadsheet data — not for VCS
+packages/db/seed/data/*.csv

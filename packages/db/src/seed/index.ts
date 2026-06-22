@@ -1,4 +1,5 @@
 import { readFileSync, existsSync } from "fs";
+import iconv from "iconv-lite";
 import { join } from "path";
 import { Prisma, PrismaClient } from "@prisma/client";
 import { seedRuleConfig } from "./rule-config-defaults.js";
@@ -8,14 +9,15 @@ import { parseItemTemplates } from "./parse-csv.js";
 const prisma = new PrismaClient();
 
 async function seedItemsFromCsv() {
-  const csvPath = join(import.meta.dirname, "../../../seed/data/Gob_markets.csv");
+  const csvPath = join(import.meta.dirname, "../../seed/data/Gob_markets.csv");
   if (!existsSync(csvPath)) {
     console.log("[seed] Gob_markets.csv not found — skipping ItemTemplate seed");
     console.log(`       Place the file at: packages/db/seed/data/Gob_markets.csv`);
     return;
   }
 
-  const content = readFileSync(csvPath, "utf-8");
+  const rawBuffer = readFileSync(csvPath);
+  const content = iconv.decode(rawBuffer, "win1251");
   const templates = parseItemTemplates(content);
   let count = 0;
 
