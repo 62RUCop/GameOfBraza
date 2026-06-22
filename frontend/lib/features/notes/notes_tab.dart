@@ -1,93 +1,161 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../../core/api/api_client.dart';
 import '../../core/providers/characters_provider.dart';
+import '../../core/theme/app_theme.dart';
 
 class NotesTab extends ConsumerStatefulWidget {
   final String characterId;
-  final String? initialNotes;
 
-  const NotesTab({super.key, required this.characterId, this.initialNotes});
+  const NotesTab({super.key, required this.characterId});
 
   @override
   ConsumerState<NotesTab> createState() => _NotesTabState();
 }
 
 class _NotesTabState extends ConsumerState<NotesTab> {
-  late final TextEditingController _ctrl;
+  late TextEditingController _ctrl;
   Timer? _debounce;
-  String _saveStatus = '';
+  _SaveStatus _status = _SaveStatus.saved;
+  bool _initialized = false;
 
   @override
   void initState() {
     super.initState();
-    _ctrl = TextEditingController(text: widget.initialNotes ?? '');
-    _ctrl.addListener(_onChanged);
+    _ctrl = TextEditingController();
   }
 
   @override
   void dispose() {
     _debounce?.cancel();
-    _ctrl.removeListener(_onChanged);
     _ctrl.dispose();
     super.dispose();
   }
 
-  void _onChanged() {
+  void _onChanged(String _) {
+    setState(() => _status = _SaveStatus.unsaved);
     _debounce?.cancel();
-    setState(() => _saveStatus = 'сохраняется...');
     _debounce = Timer(const Duration(seconds: 2), _save);
   }
 
   Future<void> _save() async {
+    setState(() => _status = _SaveStatus.saving);
     try {
-      final dio = ref.read(dioProvider);
-      await dio.patch('/characters/${widget.characterId}/description', data: {'player_notes': _ctrl.text});
-      if (mounted) setState(() => _saveStatus = 'сохранено');
+      await ref
+          .read(characterProvider(widget.characterId).notifier)
+          .updateDescription({'player_notes': _ctrl.text});
+      if (mounted) setState(() => _status = _SaveStatus.saved);
     } catch (_) {
-      if (mounted) setState(() => _saveStatus = 'ошибка сохранения');
+      if (mounted) setState(() => _status = _SaveStatus.error);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text('Заметки', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-              Row(
+    final characterAsync = ref.watch(characterProvider(widget.characterId));
+
+    return characterAsync.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, _) => Center(child: Text('Ошибка: $e')),
+      data: (character) {
+        if (!_initialized) {
+          _ctrl.text = character.playerNotes ?? '';
+          _initialized = true;
+        }
+        return Column(
+          children: [
+            // Status bar
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              color: Theme.of(context).colorScheme.surface,
+              child: Row(
                 children: [
-                  if (_saveStatus.isNotEmpty)
-                    Text(_saveStatus, style: TextStyle(
-                      fontSize: 12,
-                      color: _saveStatus == 'сохранено' ? Colors.green : (_saveStatus == 'ошибка сохранения' ? Colors.red : Colors.white54),
-                    )),
-                  const SizedBox(width: 8),
-                  TextButton.icon(icon: const Icon(Icons.save, size: 16), label: const Text('Сохранить'), onPressed: _save),
+                  _StatusChip(status: _status),
+                  const Spacer(),
+                  TextButton.icon(
+                    icon: const Icon(Icons.save_outlined, size: 16),
+                    label: const Text('Сохранить'),
+                    onPressed:
+                        _status == _SaveStatus.unsaved ? _save : null,
+                  ),
                 ],
               ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Expanded(
-            child: TextField(
-              controller: _ctrl,
-              maxLines: null,
-              expands: true,
-              textAlignVertical: TextAlignVertical.top,
-              decoration: const InputDecoration(hintText: 'Ваши заметки о персонаже...', alignLabelWithHint: true),
-              style: const TextStyle(fontSize: 14, height: 1.6),
             ),
-          ),
-        ],
-      ),
+            const Divider(height: 1),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: TextField(
+                  controller: _ctrl,
+                  maxLines: null,
+                  expands: true,
+                  textAlignVertical: TextAlignVertical.top,
+                  decoration: const InputDecoration(
+                    hintText: 'Заметки игрока...',
+                    border: InputBorder.none,
+                    enabledBorder: InputBorder.none,
+                    focusedBorder: InputBorder.none,
+                    filled: false,
+                  ),
+                  style: Theme.of(context).textTheme.bodyMedium,
+                  onChanged: _onChanged,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
     );
+  }
+}
+
+enum _SaveStatus { saved, unsaved, saving, error }
+
+class _StatusChip extends StatelessWidget {
+  final _SaveStatus status;
+
+  const _StatusChip({required this.status});
+
+  @override
+  Widget build(BuildContext context) {
+    switch (status) {
+      case _SaveStatus.saved:
+        return const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.check_circle_outline, size: 14, color: Colors.green),
+            SizedBox(width: 4),
+            Text('сохранено',
+                style: TextStyle(fontSize: 12, color: AppTheme.onSurfaceMuted)),
+          ],
+        );
+      case _SaveStatus.unsaved:
+        return const Text('не сохранено',
+            style: TextStyle(fontSize: 12, color: AppTheme.onSurfaceMuted));
+      case _SaveStatus.saving:
+        return const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+                width: 12,
+                height: 12,
+                child: CircularProgressIndicator(strokeWidth: 2)),
+            SizedBox(width: 4),
+            Text('сохраняется...',
+                style:
+                    TextStyle(fontSize: 12, color: AppTheme.onSurfaceMuted)),
+          ],
+        );
+      case _SaveStatus.error:
+        return const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.error_outline, size: 14, color: Colors.red),
+            SizedBox(width: 4),
+            Text('ошибка сохранения',
+                style: TextStyle(fontSize: 12, color: Colors.red)),
+          ],
+        );
+    }
   }
 }

@@ -1,19 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../../core/api/api_client.dart';
-
-final _backpackProvider = FutureProvider.family<List<Map<String, dynamic>?>, String>((ref, charId) async {
-  final dio = ref.watch(dioProvider);
-  final response = await dio.get('/characters/$charId/backpack');
-  return (response.data as List).map((e) => e as Map<String, dynamic>?).toList();
-});
-
-final _currencyProvider = FutureProvider.family<Map<String, dynamic>, String>((ref, charId) async {
-  final dio = ref.watch(dioProvider);
-  final response = await dio.get('/characters/$charId/currency');
-  return response.data as Map<String, dynamic>;
-});
+import '../../core/models/models.dart';
+import '../../core/providers/auth_provider.dart';
+import '../../core/providers/characters_provider.dart';
+import '../../core/theme/app_theme.dart';
 
 class BackpackTab extends ConsumerWidget {
   final String characterId;
@@ -22,156 +12,381 @@ class BackpackTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final backpackAsync = ref.watch(_backpackProvider(characterId));
-    final currencyAsync = ref.watch(_currencyProvider(characterId));
+    final backpackAsync = ref.watch(backpackProvider(characterId));
+    final currencyAsync = ref.watch(currencyProvider(characterId));
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    return RefreshIndicator(
+      onRefresh: () async {
+        ref.invalidate(backpackProvider(characterId));
+        ref.invalidate(currencyProvider(characterId));
+      },
+      child: ListView(
+        padding: const EdgeInsets.all(16),
         children: [
+          // Currency block
           currencyAsync.when(
-            loading: () => const CircularProgressIndicator(),
-            error: (e, _) => Text('Ошибка загрузки валюты: $e', style: const TextStyle(color: Colors.red)),
-            data: (curr) => _CurrencyCard(characterId: characterId, balanceBronze: (curr['balance_bronze'] as num).toDouble(), ref: ref),
+            loading: () => const LinearProgressIndicator(),
+            error: (e, _) => Text('Ошибка валюты: $e'),
+            data: (currency) => _CurrencyBlock(
+              currency: currency,
+              onTransaction: () =>
+                  _showTransactionDialog(context, ref, currency),
+            ),
           ),
-          const SizedBox(height: 16),
-          const Text('Рюкзак', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-          const SizedBox(height: 8),
+          const SizedBox(height: 20),
+
+          // Backpack slots
+          Text('Рюкзак (6 ячеек)',
+              style: Theme.of(context)
+                  .textTheme
+                  .titleMedium
+                  ?.copyWith(fontWeight: FontWeight.bold)),
+          const SizedBox(height: 12),
           backpackAsync.when(
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error: (e, _) => Text('Ошибка: $e', style: const TextStyle(color: Colors.red)),
+            loading: () => const LinearProgressIndicator(),
+            error: (e, _) => Text('Ошибка: $e'),
             data: (slots) => Column(
-              children: slots.asMap().entries.map((entry) {
-                final i = entry.key;
-                final slot = entry.value;
-                return _BackpackSlotCard(
-                  slotIndex: i + 1,
-                  slot: slot,
-                  characterId: characterId,
-                  onSave: () => ref.invalidate(_backpackProvider(characterId)),
+              children: List.generate(6, (i) {
+                final slotIndex = i + 1;
+                final slot = slots.firstWhere(
+                  (s) => s.slotIndex == slotIndex,
+                  orElse: () => BackpackSlot(slotIndex: slotIndex),
                 );
-              }).toList(),
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: _BackpackSlotCard(
+                    slot: slot,
+                    onSave: (data) async {
+                      await ref
+                          .read(apiClientProvider)
+                          .setBackpackSlot(characterId, slotIndex, data);
+                      ref.invalidate(backpackProvider(characterId));
+                    },
+                    onClear: slot.isEmpty
+                        ? null
+                        : () async {
+                            await ref
+                                .read(apiClientProvider)
+                                .clearBackpackSlot(characterId, slotIndex);
+                            ref.invalidate(backpackProvider(characterId));
+                          },
+                  ),
+                );
+              }),
             ),
           ),
         ],
       ),
     );
   }
-}
 
-class _CurrencyCard extends StatelessWidget {
-  final String characterId;
-  final double balanceBronze;
-  final WidgetRef ref;
-
-  const _CurrencyCard({required this.characterId, required this.balanceBronze, required this.ref});
-
-  String _format() {
-    final bronze = balanceBronze.toInt();
-    final gold = bronze ~/ 100;
-    final silver = (bronze % 100) ~/ 10;
-    final b = bronze % 10;
-    final parts = <String>[];
-    if (gold > 0) parts.add('${gold} зол.');
-    if (silver > 0) parts.add('${silver} сер.');
-    if (b > 0 || parts.isEmpty) parts.add('${b} бр.');
-    return parts.join(' ');
-  }
-
-  void _showTransactionDialog(BuildContext context) {
-    final amountCtrl = TextEditingController();
-    final targetCtrl = TextEditingController();
-
+  void _showTransactionDialog(
+      BuildContext context, WidgetRef ref, CurrencyOut currency) {
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Изменить баланс'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(controller: amountCtrl, keyboardType: const TextInputType.numberWithOptions(signed: true, decimal: true), decoration: const InputDecoration(labelText: 'Сумма (бронза, +/-)')),
-            const SizedBox(height: 8),
-            TextField(controller: targetCtrl, decoration: const InputDecoration(labelText: 'Цель транзакции *')),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Отмена')),
-          ElevatedButton(
-            onPressed: () async {
-              if (targetCtrl.text.isEmpty) return;
-              final amount = double.tryParse(amountCtrl.text);
-              if (amount == null) return;
-              Navigator.pop(ctx);
-              final dio = ref.read(dioProvider);
-              await dio.post('/characters/$characterId/currency/transaction', data: {'amount_bronze': amount, 'money_target': targetCtrl.text});
-              ref.invalidate(_currencyProvider(characterId));
-            },
-            child: const Text('Применить'),
-          ),
-        ],
+      builder: (_) => _TransactionDialog(
+        characterId: characterId,
+        currentBalance: currency.balanceBronze,
+        onDone: () => ref.invalidate(currencyProvider(characterId)),
       ),
     );
+  }
+}
+
+// ── Currency block ────────────────────────────────────────────────────────────
+
+class _CurrencyBlock extends StatelessWidget {
+  final CurrencyOut currency;
+  final VoidCallback onTransaction;
+
+  const _CurrencyBlock(
+      {required this.currency, required this.onTransaction});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('Валюта',
+                    style: theme.textTheme.titleMedium
+                        ?.copyWith(fontWeight: FontWeight.bold)),
+                TextButton.icon(
+                  icon: const Icon(Icons.swap_horiz, size: 16),
+                  label: const Text('Изменить'),
+                  onPressed: onTransaction,
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                _CoinWidget(
+                    amount: currency.gold, label: 'зол.', color: const Color(0xFFFFD700)),
+                const SizedBox(width: 16),
+                _CoinWidget(
+                    amount: currency.silver,
+                    label: 'сер.',
+                    color: const Color(0xFFC0C0C0)),
+                const SizedBox(width: 16),
+                _CoinWidget(
+                    amount: currency.bronze,
+                    label: 'бр.',
+                    color: const Color(0xFFCD7F32)),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Всего: ${currency.balanceBronze.toStringAsFixed(0)} бронзы',
+              style: theme.textTheme.bodySmall
+                  ?.copyWith(color: AppTheme.onSurfaceMuted),
+            ),
+            if (currency.transactions.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              const Divider(height: 1),
+              const SizedBox(height: 8),
+              Text('Последние операции',
+                  style: theme.textTheme.bodySmall
+                      ?.copyWith(color: AppTheme.onSurfaceMuted)),
+              const SizedBox(height: 4),
+              ...currency.transactions.take(5).map((tx) => Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 2),
+                    child: Row(
+                      children: [
+                        Icon(
+                          tx.amountBronze >= 0
+                              ? Icons.arrow_upward
+                              : Icons.arrow_downward,
+                          size: 12,
+                          color: tx.amountBronze >= 0
+                              ? Colors.green
+                              : theme.colorScheme.error,
+                        ),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            tx.moneyTarget,
+                            style: theme.textTheme.bodySmall,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        Text(
+                          '${tx.amountBronze >= 0 ? "+" : ""}${tx.amountBronze.toStringAsFixed(0)} бр.',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: tx.amountBronze >= 0
+                                ? Colors.green
+                                : theme.colorScheme.error,
+                          ),
+                        ),
+                      ],
+                    ),
+                  )),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CoinWidget extends StatelessWidget {
+  final int amount;
+  final String label;
+  final Color color;
+
+  const _CoinWidget(
+      {required this.amount, required this.label, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: color.withAlpha(30),
+            shape: BoxShape.circle,
+            border: Border.all(color: color.withAlpha(150), width: 2),
+          ),
+          child: Center(
+            child: Text(
+              '$amount',
+              style: TextStyle(
+                color: color,
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(label,
+            style: const TextStyle(
+                fontSize: 11, color: AppTheme.onSurfaceMuted)),
+      ],
+    );
+  }
+}
+
+// ── Transaction dialog ────────────────────────────────────────────────────────
+
+class _TransactionDialog extends ConsumerStatefulWidget {
+  final String characterId;
+  final double currentBalance;
+  final VoidCallback onDone;
+
+  const _TransactionDialog({
+    required this.characterId,
+    required this.currentBalance,
+    required this.onDone,
+  });
+
+  @override
+  ConsumerState<_TransactionDialog> createState() => _TransactionDialogState();
+}
+
+class _TransactionDialogState extends ConsumerState<_TransactionDialog> {
+  final _amountCtrl = TextEditingController();
+  final _targetCtrl = TextEditingController();
+  bool _loading = false;
+  bool _isPositive = true;
+
+  @override
+  void dispose() {
+    _amountCtrl.dispose();
+    _targetCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    final amount = double.tryParse(_amountCtrl.text);
+    final target = _targetCtrl.text.trim();
+    if (amount == null || amount <= 0) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Введите сумму')));
+      return;
+    }
+    if (target.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Укажите назначение платежа')));
+      return;
+    }
+    setState(() => _loading = true);
+    try {
+      final delta = _isPositive ? amount : -amount;
+      await ref.read(apiClientProvider).createTransaction(
+            widget.characterId,
+            amountBronze: delta,
+            moneyTarget: target,
+          );
+      widget.onDone();
+      if (mounted) Navigator.pop(context);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Ошибка: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            const Icon(Icons.monetization_on, color: Colors.amber, size: 32),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('Монеты', style: TextStyle(fontWeight: FontWeight.bold)),
-                  Text(_format(), style: const TextStyle(fontSize: 18, color: Colors.amber)),
-                ],
-              ),
+    return AlertDialog(
+      title: const Text('Изменить баланс'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SegmentedButton<bool>(
+            segments: const [
+              ButtonSegment(value: true, label: Text('Получить')),
+              ButtonSegment(value: false, label: Text('Потратить')),
+            ],
+            selected: {_isPositive},
+            onSelectionChanged: (s) =>
+                setState(() => _isPositive = s.first),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _amountCtrl,
+            keyboardType:
+                const TextInputType.numberWithOptions(decimal: true),
+            decoration: const InputDecoration(
+              labelText: 'Сумма (в бронзе)',
+              hintText: '100 = 1 серебро',
             ),
-            ElevatedButton(
-              onPressed: () => _showTransactionDialog(context),
-              child: const Text('Изменить'),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _targetCtrl,
+            decoration: const InputDecoration(
+              labelText: 'Назначение *',
+              hintText: 'Покупка меча / Оплата таверны...',
             ),
-          ],
-        ),
+          ),
+        ],
       ),
+      actions: [
+        TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Отмена')),
+        ElevatedButton(
+          onPressed: _loading ? null : _submit,
+          child: _loading
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2))
+              : const Text('Применить'),
+        ),
+      ],
     );
   }
 }
 
-class _BackpackSlotCard extends ConsumerStatefulWidget {
-  final int slotIndex;
-  final Map<String, dynamic>? slot;
-  final String characterId;
-  final VoidCallback onSave;
+// ── Backpack slot card ────────────────────────────────────────────────────────
 
-  const _BackpackSlotCard({required this.slotIndex, required this.slot, required this.characterId, required this.onSave});
+class _BackpackSlotCard extends StatefulWidget {
+  final BackpackSlot slot;
+  final Future<void> Function(Map<String, dynamic>) onSave;
+  final VoidCallback? onClear;
+
+  const _BackpackSlotCard({
+    required this.slot,
+    required this.onSave,
+    this.onClear,
+  });
 
   @override
-  ConsumerState<_BackpackSlotCard> createState() => _BackpackSlotCardState();
+  State<_BackpackSlotCard> createState() => _BackpackSlotCardState();
 }
 
-class _BackpackSlotCardState extends ConsumerState<_BackpackSlotCard> {
-  bool _expanded = false;
+class _BackpackSlotCardState extends State<_BackpackSlotCard> {
+  bool _editing = false;
   late final TextEditingController _nameCtrl;
   late final TextEditingController _descCtrl;
   late final TextEditingController _qtyCtrl;
-  String _type = 'misc';
-
-  static const _types = ['food', 'scroll', 'herb', 'potion', 'misc', 'quest', 'other'];
-  static const _typeLabels = {'food': 'Еда', 'scroll': 'Свиток', 'herb': 'Трава', 'potion': 'Зелье', 'misc': 'Разное', 'quest': 'Квест', 'other': 'Другое'};
+  late String _type;
+  bool _saving = false;
 
   @override
   void initState() {
     super.initState();
-    _nameCtrl = TextEditingController(text: widget.slot?['item_name'] as String? ?? '');
-    _descCtrl = TextEditingController(text: widget.slot?['description'] as String? ?? '');
-    _qtyCtrl = TextEditingController(text: '${widget.slot?['quantity'] ?? 1}');
-    _type = widget.slot?['item_type'] as String? ?? 'misc';
+    _nameCtrl = TextEditingController(text: widget.slot.itemName ?? '');
+    _descCtrl = TextEditingController(text: widget.slot.description ?? '');
+    _qtyCtrl =
+        TextEditingController(text: '${widget.slot.quantity ?? 1}');
+    _type = widget.slot.itemType ?? 'misc';
   }
 
   @override
@@ -183,66 +398,191 @@ class _BackpackSlotCardState extends ConsumerState<_BackpackSlotCard> {
   }
 
   Future<void> _save() async {
-    if (_nameCtrl.text.isEmpty) return;
-    final dio = ref.read(dioProvider);
-    await dio.post('/characters/${widget.characterId}/backpack/${widget.slotIndex}', data: {
-      'item_name': _nameCtrl.text,
-      'item_type': _type,
-      'description': _descCtrl.text.isEmpty ? null : _descCtrl.text,
-      'quantity': int.tryParse(_qtyCtrl.text) ?? 1,
-    });
-    widget.onSave();
-    setState(() => _expanded = false);
-  }
-
-  Future<void> _clear() async {
-    final dio = ref.read(dioProvider);
-    await dio.delete('/characters/${widget.characterId}/backpack/${widget.slotIndex}');
-    widget.onSave();
+    if (_nameCtrl.text.trim().isEmpty) return;
+    setState(() => _saving = true);
+    try {
+      await widget.onSave({
+        'item_name': _nameCtrl.text.trim(),
+        'item_type': _type,
+        'description': _descCtrl.text.trim().isNotEmpty
+            ? _descCtrl.text.trim()
+            : null,
+        'quantity': int.tryParse(_qtyCtrl.text) ?? 1,
+      });
+      setState(() => _editing = false);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Ошибка: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final isEmpty = widget.slot?['item_name'] == null;
+    final theme = Theme.of(context);
+    final slot = widget.slot;
+
+    if (_editing) {
+      return Card(
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  Text('Ячейка ${slot.slotIndex}',
+                      style: theme.textTheme.bodySmall
+                          ?.copyWith(color: AppTheme.onSurfaceMuted)),
+                  const Spacer(),
+                  TextButton(
+                      onPressed: () => setState(() => _editing = false),
+                      child: const Text('Отмена')),
+                ],
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _nameCtrl,
+                decoration:
+                    const InputDecoration(labelText: 'Название', isDense: true),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: DropdownButtonFormField<String>(
+                      value: _type,
+                      isDense: true,
+                      decoration: const InputDecoration(labelText: 'Тип'),
+                      items: kBackpackItemTypes
+                          .map((t) => DropdownMenuItem(
+                              value: t,
+                              child: Text(
+                                  kBackpackItemTypeLabels[t] ?? t,
+                                  style:
+                                      const TextStyle(fontSize: 13))))
+                          .toList(),
+                      onChanged: (v) =>
+                          setState(() => _type = v ?? 'misc'),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  SizedBox(
+                    width: 70,
+                    child: TextField(
+                      controller: _qtyCtrl,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                          labelText: 'Кол-во', isDense: true),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _descCtrl,
+                maxLines: 2,
+                decoration: const InputDecoration(
+                    labelText: 'Описание (необязательно)',
+                    isDense: true),
+              ),
+              const SizedBox(height: 10),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: _saving ? null : _save,
+                  child: _saving
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child:
+                              CircularProgressIndicator(strokeWidth: 2))
+                      : const Text('Сохранить'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
 
     return Card(
-      margin: const EdgeInsets.only(bottom: 6),
-      child: ExpansionTile(
-        leading: CircleAvatar(radius: 14, child: Text('${widget.slotIndex}', style: const TextStyle(fontSize: 12))),
-        title: Text(isEmpty ? 'Пустая ячейка ${widget.slotIndex}' : (widget.slot!['item_name'] as String), style: TextStyle(color: isEmpty ? Colors.white24 : null)),
-        subtitle: !isEmpty ? Text('${_typeLabels[widget.slot!['item_type']]} × ${widget.slot!['quantity']}', style: const TextStyle(fontSize: 11)) : null,
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                TextField(controller: _nameCtrl, decoration: const InputDecoration(labelText: 'Название', isDense: true)),
-                const SizedBox(height: 8),
-                DropdownButtonFormField<String>(
-                  value: _type,
-                  items: _types.map((t) => DropdownMenuItem(value: t, child: Text(_typeLabels[t]!))).toList(),
-                  onChanged: (v) => setState(() => _type = v ?? 'misc'),
-                  decoration: const InputDecoration(labelText: 'Тип', isDense: true),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () => setState(() {
+          _editing = true;
+          _nameCtrl.text = slot.itemName ?? '';
+          _descCtrl.text = slot.description ?? '';
+          _qtyCtrl.text = '${slot.quantity ?? 1}';
+          _type = slot.itemType ?? 'misc';
+        }),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          child: Row(
+            children: [
+              Container(
+                width: 28,
+                height: 28,
+                decoration: BoxDecoration(
+                  color: AppTheme.surfaceVariant,
+                  borderRadius: BorderRadius.circular(6),
                 ),
-                const SizedBox(height: 8),
-                TextField(controller: _qtyCtrl, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Кол-во', isDense: true)),
-                const SizedBox(height: 8),
-                TextField(controller: _descCtrl, decoration: const InputDecoration(labelText: 'Описание', isDense: true)),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(child: ElevatedButton(onPressed: _save, child: const Text('Сохранить'))),
-                    if (!isEmpty) ...[
-                      const SizedBox(width: 8),
-                      OutlinedButton(onPressed: _clear, child: const Text('Очистить', style: TextStyle(color: Colors.red))),
-                    ],
-                  ],
+                child: Center(
+                  child: Text('${slot.slotIndex}',
+                      style: const TextStyle(
+                          fontSize: 12, color: AppTheme.onSurfaceMuted)),
                 ),
-              ],
-            ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: slot.isEmpty
+                    ? Text('пусто',
+                        style: theme.textTheme.bodyMedium
+                            ?.copyWith(color: AppTheme.onSurfaceMuted))
+                    : Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  slot.itemName!,
+                                  style: theme.textTheme.bodyMedium
+                                      ?.copyWith(
+                                          fontWeight: FontWeight.w600),
+                                ),
+                              ),
+                              Text(
+                                '×${slot.quantity ?? 1}',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                    color: AppTheme.onSurfaceMuted),
+                              ),
+                            ],
+                          ),
+                          if (slot.description != null &&
+                              slot.description!.isNotEmpty)
+                            Text(
+                              slot.description!,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                  color: AppTheme.onSurfaceMuted),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                        ],
+                      ),
+              ),
+              if (!slot.isEmpty && widget.onClear != null)
+                IconButton(
+                  iconSize: 18,
+                  icon: const Icon(Icons.clear,
+                      color: AppTheme.onSurfaceMuted),
+                  onPressed: widget.onClear,
+                ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

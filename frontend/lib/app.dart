@@ -1,48 +1,81 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-
 import 'core/providers/auth_provider.dart';
-import 'core/theme/app_theme.dart';
 import 'features/auth/login_screen.dart';
-import 'features/characters/character_list_screen.dart';
 import 'features/characters/character_create_screen.dart';
+import 'features/characters/character_list_screen.dart';
 import 'features/characters/character_sheet_screen.dart';
-import 'features/admin_panel/admin_panel_screen.dart';
 import 'features/gm_panel/gm_panel_screen.dart';
+import 'features/admin_panel/admin_panel_screen.dart';
+import 'core/theme/app_theme.dart';
+
+// ── Router ────────────────────────────────────────────────────────────────────
 
 final _routerProvider = Provider<GoRouter>((ref) {
-  final authState = ref.watch(authProvider);
+  final authListenable = _AuthListenable(ref);
 
   return GoRouter(
-    initialLocation: '/',
+    refreshListenable: authListenable,
     redirect: (context, state) {
-      final isLoggedIn = authState.asData?.value != null;
-      final isLoginPage = state.matchedLocation == '/login';
+      final authState = ref.read(authProvider);
+      final loggedIn = authState.valueOrNull != null;
+      final isLoading = authState.isLoading;
+      final isLogin = state.matchedLocation == '/login';
 
-      if (!isLoggedIn && !isLoginPage) return '/login';
-      if (isLoggedIn && isLoginPage) return '/';
+      if (isLoading) return null;
+      if (!loggedIn && !isLogin) return '/login';
+      if (loggedIn && isLogin) return '/characters';
       return null;
     },
     routes: [
-      GoRoute(path: '/login', builder: (_, __) => const LoginScreen()),
       GoRoute(
-        path: '/',
-        builder: (_, __) => const CharacterListScreen(),
-        routes: [
-          GoRoute(path: 'new', builder: (_, __) => const CharacterCreateScreen()),
-          GoRoute(
-            path: 'characters/:id',
-            builder: (_, state) => CharacterSheetScreen(characterId: state.pathParameters['id']!),
-          ),
-        ],
+        path: '/login',
+        builder: (_, __) => const LoginScreen(),
       ),
-      GoRoute(path: '/gm', builder: (_, __) => const GmPanelScreen()),
-      GoRoute(path: '/admin', builder: (_, __) => const AdminPanelScreen()),
+      GoRoute(
+        path: '/characters',
+        builder: (_, __) => const CharacterListScreen(),
+      ),
+      GoRoute(
+        path: '/characters/new',
+        builder: (_, __) => const CharacterCreateScreen(),
+      ),
+      GoRoute(
+        path: '/characters/:id',
+        builder: (_, state) =>
+            CharacterSheetScreen(characterId: state.pathParameters['id']!),
+      ),
+      GoRoute(
+        path: '/gm',
+        builder: (_, __) => const GmPanelScreen(),
+        redirect: (context, state) {
+          final auth = ref.read(authProvider).valueOrNull;
+          if (auth == null || !auth.isGmOrAdmin) return '/characters';
+          return null;
+        },
+      ),
+      GoRoute(
+        path: '/admin',
+        builder: (_, __) => const AdminPanelScreen(),
+        redirect: (context, state) {
+          final auth = ref.read(authProvider).valueOrNull;
+          if (auth == null || !auth.isAdmin) return '/characters';
+          return null;
+        },
+      ),
     ],
+    initialLocation: '/characters',
   );
 });
+
+class _AuthListenable extends ChangeNotifier {
+  _AuthListenable(Ref ref) {
+    ref.listen(authProvider, (_, __) => notifyListeners());
+  }
+}
+
+// ── App widget ────────────────────────────────────────────────────────────────
 
 class GameOfBrazaApp extends ConsumerWidget {
   const GameOfBrazaApp({super.key});
@@ -52,16 +85,9 @@ class GameOfBrazaApp extends ConsumerWidget {
     final router = ref.watch(_routerProvider);
 
     return MaterialApp.router(
-      title: 'GameOfBraza',
-      theme: AppTheme.dark(),
+      title: 'Game of Braza',
+      theme: AppTheme.dark,
       routerConfig: router,
-      localizationsDelegates: const [
-        GlobalMaterialLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,
-      ],
-      supportedLocales: const [Locale('ru', 'RU')],
-      locale: const Locale('ru', 'RU'),
       debugShowCheckedModeBanner: false,
     );
   }

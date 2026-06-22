@@ -1,74 +1,210 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../core/models/models.dart';
+import '../../core/providers/auth_provider.dart';
+import '../../core/providers/characters_provider.dart';
+import '../../core/theme/app_theme.dart';
 
-import '../../core/api/api_client.dart';
-
-final _partySummaryProvider = FutureProvider.family<List<Map<String, dynamic>>, String>((ref, campaignId) async {
-  final dio = ref.watch(dioProvider);
-  final response = await dio.get('/campaigns/$campaignId/party-summary');
-  return (response.data as List).cast<Map<String, dynamic>>();
-});
-
-final _campaignsProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
-  final dio = ref.watch(dioProvider);
-  final response = await dio.get('/campaigns');
-  return (response.data as List).cast<Map<String, dynamic>>();
-});
-
-class GmPanelScreen extends ConsumerWidget {
+class GmPanelScreen extends ConsumerStatefulWidget {
   const GmPanelScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final campaignsAsync = ref.watch(_campaignsProvider);
+  ConsumerState<GmPanelScreen> createState() => _GmPanelScreenState();
+}
+
+class _GmPanelScreenState extends ConsumerState<GmPanelScreen>
+    with SingleTickerProviderStateMixin {
+  late TabController _tabCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabCtrl = TabController(length: 3, vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _tabCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final auth = ref.watch(authProvider).valueOrNull;
 
     return Scaffold(
       appBar: AppBar(
+        leading: BackButton(onPressed: () => context.go('/characters')),
         title: const Text('GM Панель'),
-        leading: BackButton(onPressed: () => context.go('/')),
+        bottom: TabBar(
+          controller: _tabCtrl,
+          tabs: const [
+            Tab(text: 'Персонажи'),
+            Tab(text: 'Кампании'),
+            Tab(text: 'Настройки'),
+          ],
+        ),
       ),
-      body: campaignsAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('Ошибка: $e')),
-        data: (campaigns) => campaigns.isEmpty
-            ? const Center(child: Text('Нет кампаний. Создайте кампанию.'))
-            : ListView.builder(
-                padding: const EdgeInsets.all(16),
-                itemCount: campaigns.length,
-                itemBuilder: (_, i) {
-                  final c = campaigns[i];
-                  return ExpansionTile(
-                    title: Text(c['name'] as String, style: const TextStyle(fontWeight: FontWeight.bold)),
-                    children: [_PartySummary(campaignId: c['id'] as String)],
-                  );
-                },
-              ),
+      body: TabBarView(
+        controller: _tabCtrl,
+        children: [
+          _CharactersView(isGm: auth?.isGmOrAdmin ?? false),
+          _CampaignsView(),
+          _GmSettingsView(auth: auth),
+        ],
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showCreateCampaignDialog(context, ref),
-        icon: const Icon(Icons.add),
-        label: const Text('Новая кампания'),
+        onPressed: () => _showCreateNpcDialog(context),
+        icon: const Icon(Icons.person_add),
+        label: const Text('Создать NPC'),
       ),
     );
   }
 
-  void _showCreateCampaignDialog(BuildContext context, WidgetRef ref) {
+  void _showCreateNpcDialog(BuildContext context) {
+    context.go('/characters/new');
+  }
+}
+
+// ── Characters view (GM sees all) ────────────────────────────────────────────
+
+class _CharactersView extends ConsumerWidget {
+  final bool isGm;
+
+  const _CharactersView({required this.isGm});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final charactersAsync = ref.watch(characterListProvider);
+
+    return charactersAsync.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, _) => Center(child: Text('Ошибка: $e')),
+      data: (characters) => RefreshIndicator(
+        onRefresh: () => ref.read(characterListProvider.notifier).reload(),
+        child: ListView.separated(
+          padding: const EdgeInsets.all(16),
+          itemCount: characters.length,
+          separatorBuilder: (_, __) => const SizedBox(height: 8),
+          itemBuilder: (_, i) {
+            final c = characters[i];
+            return Card(
+              child: ListTile(
+                leading: CircleAvatar(
+                  backgroundColor:
+                      Theme.of(context).colorScheme.primary.withAlpha(40),
+                  backgroundImage: c.appearanceImageUrl != null
+                      ? NetworkImage(c.appearanceImageUrl!)
+                      : null,
+                  child: c.appearanceImageUrl == null
+                      ? Text(c.name.isNotEmpty ? c.name[0].toUpperCase() : '?',
+                          style: TextStyle(
+                              color: Theme.of(context).colorScheme.primary))
+                      : null,
+                ),
+                title: Text(c.name,
+                    style: const TextStyle(fontWeight: FontWeight.w600)),
+                subtitle: c.isNpc ? const Text('NPC') : null,
+                trailing: c.unallocatedPoints > 0
+                    ? Chip(
+                        label: Text('+${c.unallocatedPoints}',
+                            style: const TextStyle(fontSize: 11)),
+                        backgroundColor: Theme.of(context)
+                            .colorScheme
+                            .primary
+                            .withAlpha(40),
+                        padding: EdgeInsets.zero,
+                        visualDensity: VisualDensity.compact,
+                      )
+                    : const Icon(Icons.chevron_right),
+                onTap: () => context.go('/characters/${c.id}'),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+// ── Campaigns view ────────────────────────────────────────────────────────────
+
+class _CampaignsView extends ConsumerWidget {
+  _CampaignsView();
+
+  final _campaignsProvider = FutureProvider<List<CampaignOut>>((ref) async {
+    return ref.read(apiClientProvider).listCampaigns();
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final campAsync = ref.watch(_campaignsProvider);
+
+    return campAsync.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, _) => Center(child: Text('Ошибка: $e')),
+      data: (campaigns) => Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: ElevatedButton.icon(
+              onPressed: () => _showCreateCampaign(context, ref),
+              icon: const Icon(Icons.add),
+              label: const Text('Новая кампания'),
+            ),
+          ),
+          Expanded(
+            child: campaigns.isEmpty
+                ? const Center(
+                    child: Text('Нет кампаний',
+                        style: TextStyle(color: AppTheme.onSurfaceMuted)))
+                : ListView.separated(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    itemCount: campaigns.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 8),
+                    itemBuilder: (_, i) {
+                      final camp = campaigns[i];
+                      return Card(
+                        child: ListTile(
+                          leading: const Icon(Icons.campaign),
+                          title: Text(camp.name),
+                          trailing: const Icon(Icons.chevron_right),
+                          onTap: () =>
+                              _showCampaignDetail(context, ref, camp),
+                        ),
+                      );
+                    },
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showCreateCampaign(BuildContext context, WidgetRef ref) {
     final ctrl = TextEditingController();
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Создать кампанию'),
-        content: TextField(controller: ctrl, decoration: const InputDecoration(labelText: 'Название кампании')),
+      builder: (_) => AlertDialog(
+        title: const Text('Новая кампания'),
+        content: TextField(
+          controller: ctrl,
+          decoration: const InputDecoration(labelText: 'Название'),
+          autofocus: true,
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Отмена')),
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Отмена')),
           ElevatedButton(
             onPressed: () async {
-              if (ctrl.text.isEmpty) return;
-              final dio = ref.read(dioProvider);
-              await dio.post('/campaigns', data: {'name': ctrl.text});
+              if (ctrl.text.trim().isEmpty) return;
+              await ref
+                  .read(apiClientProvider)
+                  .createCampaign(ctrl.text.trim());
               ref.invalidate(_campaignsProvider);
-              if (ctx.mounted) Navigator.pop(ctx);
+              if (context.mounted) Navigator.pop(context);
             },
             child: const Text('Создать'),
           ),
@@ -76,63 +212,158 @@ class GmPanelScreen extends ConsumerWidget {
       ),
     );
   }
+
+  void _showCampaignDetail(
+      BuildContext context, WidgetRef ref, CampaignOut camp) {
+    showDialog(
+      context: context,
+      builder: (_) => _CampaignDetailDialog(campaign: camp),
+    );
+  }
 }
 
-class _PartySummary extends ConsumerWidget {
-  final String campaignId;
+class _CampaignDetailDialog extends ConsumerWidget {
+  final CampaignOut campaign;
 
-  const _PartySummary({required this.campaignId});
+  const _CampaignDetailDialog({required this.campaign});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final summaryAsync = ref.watch(_partySummaryProvider(campaignId));
+    final partyAsync = FutureProvider<List<PartySummaryItem>>((r) async {
+      return r.read(apiClientProvider).getPartySummary(campaign.id);
+    });
+    final summary = ref.watch(partyAsync);
 
-    return summaryAsync.when(
-      loading: () => const Padding(padding: EdgeInsets.all(16), child: CircularProgressIndicator()),
-      error: (e, _) => Text('Ошибка: $e'),
-      data: (members) => Column(
-        children: members.map((m) => Card(
-          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Row(
-              children: [
-                Expanded(child: Text(m['name'] as String, style: const TextStyle(fontWeight: FontWeight.bold))),
-                _MiniBar(label: 'HP', current: m['current_hp'] as int, max: m['hp_max'] as int, color: Colors.red),
-                const SizedBox(width: 8),
-                _MiniBar(label: 'MP', current: m['current_mana'] as int, max: m['mana_max'] as int, color: Colors.blue),
-              ],
-            ),
+    return AlertDialog(
+      title: Text(campaign.name),
+      content: SizedBox(
+        width: 360,
+        child: summary.when(
+          loading: () =>
+              const Center(child: CircularProgressIndicator()),
+          error: (e, _) => Text('Ошибка: $e'),
+          data: (party) => party.isEmpty
+              ? const Text('Нет участников')
+              : Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: party
+                      .map((p) => _PartyMemberRow(member: p))
+                      .toList(),
+                ),
+        ),
+      ),
+      actions: [
+        TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Закрыть')),
+      ],
+    );
+  }
+}
+
+class _PartyMemberRow extends StatelessWidget {
+  final PartySummaryItem member;
+
+  const _PartyMemberRow({required this.member});
+
+  @override
+  Widget build(BuildContext context) {
+    final hpFrac =
+        member.hpMax > 0 ? member.currentHp / member.hpMax : 0.0;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(member.name,
+                    style: const TextStyle(fontWeight: FontWeight.w600)),
+              ),
+              if (member.bubbleActive)
+                const Icon(Icons.bubble_chart, size: 14, color: Colors.blue),
+            ],
           ),
-        )).toList(),
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              const SizedBox(
+                  width: 24,
+                  child: Text('HP',
+                      style: TextStyle(
+                          fontSize: 10, color: AppTheme.onSurfaceMuted))),
+              Expanded(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(3),
+                  child: LinearProgressIndicator(
+                    value: hpFrac.clamp(0.0, 1.0),
+                    minHeight: 8,
+                    backgroundColor: AppTheme.surfaceVariant,
+                    valueColor:
+                        const AlwaysStoppedAnimation<Color>(AppTheme.hpColor),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 6),
+              Text('${member.currentHp}/${member.hpMax}',
+                  style: const TextStyle(
+                      fontSize: 11, color: AppTheme.onSurfaceMuted)),
+            ],
+          ),
+        ],
       ),
     );
   }
 }
 
-class _MiniBar extends StatelessWidget {
-  final String label;
-  final int current, max;
-  final Color color;
+// ── GM Settings ───────────────────────────────────────────────────────────────
 
-  const _MiniBar({required this.label, required this.current, required this.max, required this.color});
+class _GmSettingsView extends ConsumerWidget {
+  final Account? auth;
+
+  const _GmSettingsView({this.auth});
 
   @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.end,
+  Widget build(BuildContext context, WidgetRef ref) {
+    if (auth == null) return const SizedBox();
+    return ListView(
+      padding: const EdgeInsets.all(16),
       children: [
-        Text('$label: $current/$max', style: const TextStyle(fontSize: 10, color: Colors.white54)),
-        SizedBox(
-          width: 60,
-          height: 6,
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(3),
-            child: LinearProgressIndicator(
-              value: max > 0 ? (current / max).clamp(0.0, 1.0) : 0,
-              backgroundColor: Colors.white12,
-              color: color,
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('GM Настройки',
+                    style: Theme.of(context)
+                        .textTheme
+                        .titleMedium
+                        ?.copyWith(fontWeight: FontWeight.bold)),
+                const SizedBox(height: 12),
+                SwitchListTile(
+                  value: auth!.gmSkipConfirmation,
+                  onChanged: (v) => ref
+                      .read(authProvider.notifier)
+                      .updateGmSkipConfirmation(v),
+                  title: const Text('Пропускать подтверждение'),
+                  subtitle: const Text(
+                      'Применять изменения GM без диалога подтверждения'),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ],
             ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        Card(
+          child: ListTile(
+            leading: const Icon(Icons.admin_panel_settings),
+            title: const Text('Панель администратора'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.go('/admin'),
           ),
         ),
       ],

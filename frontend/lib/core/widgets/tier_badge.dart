@@ -1,14 +1,6 @@
 import 'package:flutter/material.dart';
-
-const _tierDice = ['d4', 'd6', 'd12', 'd20', 'd60', 'd100'];
-const _tierColors = [
-  Color(0xFF757575),
-  Color(0xFF388e3c),
-  Color(0xFF1976d2),
-  Color(0xFF7b1fa2),
-  Color(0xFFf57f17),
-  Color(0xFFc62828),
-];
+import '../models/models.dart';
+import '../theme/app_theme.dart';
 
 class TierBadge extends StatelessWidget {
   final int tier;
@@ -18,17 +10,23 @@ class TierBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final safeT = tier.clamp(0, 5);
+    final label = kTierDice[tier.clamp(0, 5)] ?? 'd?';
+    final color = AppTheme.tierColor(tier);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: _tierColors[safeT].withOpacity(0.2),
-        border: Border.all(color: _tierColors[safeT]),
+        color: color.withAlpha(30),
         borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: color.withAlpha(120), width: 1),
       ),
       child: Text(
-        _tierDice[safeT],
-        style: TextStyle(color: _tierColors[safeT], fontSize: fontSize, fontWeight: FontWeight.bold),
+        label,
+        style: TextStyle(
+          color: color,
+          fontSize: fontSize,
+          fontWeight: FontWeight.bold,
+          letterSpacing: 0.5,
+        ),
       ),
     );
   }
