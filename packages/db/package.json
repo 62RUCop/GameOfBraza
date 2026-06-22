@@ -19,11 +19,13 @@
     "lint": "eslint src"
   },
   "dependencies": {
+    "@gob/rules": "workspace:*",
     "@prisma/client": "^6.2.1",
     "zod": "^3.24.1"
   },
   "devDependencies": {
     "@gob/config": "workspace:*",
+    "csv-parse": "^5.6.0",
     "prisma": "^6.2.1",
     "tsx": "^4.19.2",
     "typescript": "^5.7.3"

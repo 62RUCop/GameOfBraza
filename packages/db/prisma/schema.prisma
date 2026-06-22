@@ -216,6 +216,7 @@ model ItemTemplate {
   grantedAbilities    ItemTemplateSkill[]
   instances           ItemInstance[]
 
+  @@unique([name])
   @@map("item_templates")
 }
 
