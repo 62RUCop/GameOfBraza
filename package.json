@@ -2,6 +2,7 @@
   "name": "gameofbraza",
   "private": true,
   "scripts": {
+    "predev": "node -e \"const { execSync } = require('child_process'); try { const pid = execSync('netstat -ano | findstr :3000 | findstr LISTENING', { encoding: 'utf8' }).trim().split(/\\s+/).pop(); if (pid) execSync('taskkill /PID ' + pid + ' /F'); } catch {}\"",
     "dev": "turbo dev",
     "build": "turbo build",
     "test": "turbo test",

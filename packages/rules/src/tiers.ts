@@ -1,4 +1,4 @@
-import type { StatValue, Tier } from "./types.js";
+import type { StatValue, Tier } from "./types";
 
 /**
  * Tier → die face mapping (§3.2)
@@ -31,7 +31,8 @@ export function classIndex(
 ): number {
   let idx = -1;
   for (let i = 0; i < thresholds.length; i++) {
-    if (value >= (thresholds[i] as number)) idx = i;
+    const threshold = thresholds[i];
+    if (threshold !== undefined && value >= threshold) idx = i;
   }
   return idx;
 }

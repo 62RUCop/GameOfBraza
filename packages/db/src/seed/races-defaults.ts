@@ -1,9 +1,15 @@
 import type { PrismaClient } from "@prisma/client";
 
 const BASE_RACES = [
-  { name: "Человек", description: "Обычный человек этого мира" },
-  { name: "Полукровка", description: "Смешанное происхождение" },
-  { name: "Нежить", description: "Вернувшийся из мёртвых" },
+  { name: "Люди", description: "Универсальные бойцы, хорошо во всех ролях" },
+  { name: "Орки", description: "Мощные воины, специализируются на танке и атаке" },
+  { name: "Эльфы", description: "Ловкие и магически одарённые" },
+  { name: "Звери", description: "Дикие существа, атакуют телом" },
+  { name: "Наги", description: "Защитники с высокой броней" },
+  { name: "Гномы", description: "Крепкие защитники с дальнобойным оружием" },
+  { name: "Насекомые", description: "Непредсказуемые существа с рандомным HP" },
+  { name: "Дриады", description: "Лесные духи, сильные хиллеры и колдуны" },
+  { name: "Демоны", description: "Сильнейшие существа с многочисленными защитами" },
 ];
 
 export async function seedRaces(prisma: PrismaClient) {

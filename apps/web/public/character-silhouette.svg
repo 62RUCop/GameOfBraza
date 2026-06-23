@@ -1,0 +1,32 @@
+<svg viewBox="0 0 200 460" xmlns="http://www.w3.org/2000/svg" fill="currentColor">
+  <!-- Head -->
+  <ellipse cx="100" cy="52" rx="28" ry="30" />
+  <!-- Neck -->
+  <rect x="90" y="78" width="20" height="16" rx="3" />
+  <!-- Shoulders + Torso -->
+  <path d="M58,94 Q100,86 142,94 L132,200 L68,200 Z" />
+  <!-- Left upper arm -->
+  <path d="M62,96 L38,102 L26,165 L38,168 L52,118 L66,112 Z" />
+  <!-- Left forearm + hand -->
+  <path d="M26,165 L22,215 L34,218 L40,172 Z" />
+  <ellipse cx="28" cy="222" rx="7" ry="10" />
+  <!-- Right upper arm -->
+  <path d="M138,96 L162,102 L174,165 L162,168 L148,118 L134,112 Z" />
+  <!-- Right forearm + hand -->
+  <path d="M174,165 L178,215 L166,218 L160,172 Z" />
+  <ellipse cx="172" cy="222" rx="7" ry="10" />
+  <!-- Belt/hips area -->
+  <path d="M68,200 L132,200 L136,232 L64,232 Z" />
+  <!-- Left thigh -->
+  <path d="M64,232 L98,232 L95,330 L62,330 Z" />
+  <!-- Left lower leg -->
+  <path d="M62,330 L95,330 L92,415 L58,415 Z" />
+  <!-- Left foot -->
+  <path d="M50,415 L92,415 L94,428 L48,428 Z" rx="3" />
+  <!-- Right thigh -->
+  <path d="M102,232 L136,232 L138,330 L105,330 Z" />
+  <!-- Right lower leg -->
+  <path d="M105,330 L138,330 L142,415 L108,415 Z" />
+  <!-- Right foot -->
+  <path d="M108,415 L152,415 L150,428 L106,428 Z" rx="3" />
+</svg>

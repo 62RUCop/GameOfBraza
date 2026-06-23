@@ -1,5 +1,5 @@
-import type { BubbleState } from "./types.js";
-import type { RuleConfig } from "./config.js";
+import type { BubbleState } from "./types";
+import type { RuleConfig } from "./config";
 
 /**
  * Compute current persist_chance from charges (§3.7).

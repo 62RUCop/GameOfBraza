@@ -1,7 +1,8 @@
-export default function HomePage() {
-  return (
-    <main className="flex min-h-screen items-center justify-center">
-      <h1 className="text-4xl font-bold">Game of Braza</h1>
-    </main>
-  );
+import { redirect } from "next/navigation";
+import { auth } from "@/lib/auth";
+
+export default async function HomePage() {
+  const session = await auth();
+  if (session) redirect("/characters");
+  redirect("/sign-in");
 }

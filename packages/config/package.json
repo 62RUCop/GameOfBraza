@@ -2,11 +2,17 @@
   "name": "@gob/config",
   "private": true,
   "version": "0.0.0",
+  "type": "module",
   "exports": {
     "./eslint": "./eslint.js",
     "./tsconfig/base": "./tsconfig/base.json",
     "./tsconfig/nextjs": "./tsconfig/nextjs.json",
     "./tsconfig/library": "./tsconfig/library.json",
     "./tailwind": "./tailwind.js"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.5.0",
+    "typescript-eslint": "^8.61.1"
   }
 }

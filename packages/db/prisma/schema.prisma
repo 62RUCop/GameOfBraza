@@ -42,6 +42,18 @@ enum SkillType {
   acquired
 }
 
+enum NpcTypaj {
+  tank
+  attacker
+  mage
+  healer
+}
+
+enum GroupModifierType {
+  fixed
+  dice
+}
+
 enum ItemLocation {
   backpack
   equipped_head
@@ -74,6 +86,7 @@ model Account {
   name              String?
   image             String?
   role              Role      @default(player)
+  password          String?
   gmSkipConfirmation Boolean  @default(false)
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
@@ -133,20 +146,46 @@ model Race {
   icon        String?
   deletedAt   DateTime?
 
-  characters  Character[]
+  characters   Character[]
+  archetypes   NpcArchetype[]
+  reputations  Reputation[]
 
   @@map("races")
 }
 
-model Faction {
-  id          String   @id @default(cuid())
-  name        String   @unique
-  description String?  @db.Text
+/// NPC archetype stats per race × typaj. All numeric values are base (before tier/group multipliers).
+model NpcArchetype {
+  id          String    @id @default(cuid())
+  raceId      String
+  typaj       NpcTypaj
+  hitChance   Int
+  baseHp      String
+  dodge       Int       @default(0)
+  armor       Int       @default(0)
+  bubbleSlots Int       @default(0)
+  weapons     Json      @default("[]")
   deletedAt   DateTime?
 
-  reputations Reputation[]
+  race Race @relation(fields: [raceId], references: [id])
 
-  @@map("factions")
+  @@unique([raceId, typaj])
+  @@map("npc_archetypes")
+}
+
+/// Группировка — профессиональное объединение. Для НПС даёт числовой модификатор; для игроков — текстовые бонусы.
+model Group {
+  id             String            @id @default(cuid())
+  name           String            @unique
+  description    String?           @db.Text
+  modifierType   GroupModifierType @default(fixed)
+  modifierValue  Decimal?          @db.Decimal(6, 3)
+  modifierDice   String?
+  specialEffect  String?           @db.Text
+  deletedAt      DateTime?
+
+  characters Character[]
+
+  @@map("groups")
 }
 
 model SkillCategory {
@@ -283,12 +322,18 @@ model Character {
   questProgressStage Int       @default(0)
   playerNotes        String?   @db.Text
   unallocatedPoints  Int       @default(0)
+  groupId            String?
+  groupBonusNotes    String?   @db.Text
+  npcTypaj           NpcTypaj?
+  npcTier            Int?
+  rolledModifier     Int?
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
   deletedAt          DateTime?
 
-  owner      Account @relation(fields: [ownerId], references: [id])
-  race       Race?   @relation(fields: [raceId], references: [id])
+  owner Account @relation(fields: [ownerId], references: [id])
+  race  Race?   @relation(fields: [raceId], references: [id])
+  group Group?  @relation(fields: [groupId], references: [id])
 
   attributes    CharacterAttributes?
   runtimeState  RuntimeState?
@@ -375,6 +420,14 @@ model RuntimeState {
   armorManualOverride Boolean @default(false)
   armorOverrideAuthor String?
   armorOverrideAt    DateTime?
+
+  // slots pair
+  slotsOverride      Int?
+  slotsManualOverride Boolean @default(false)
+
+  // critBonus pair
+  critBonusOverride      Int?
+  critBonusManualOverride Boolean @default(false)
 
   // bubble charges
   bubbleCharges Int @default(0)
@@ -526,13 +579,13 @@ model ClassBonusRecord {
 model Reputation {
   id          String   @id @default(cuid())
   characterId String
-  factionId   String
+  raceId      String
   value       Int      @default(0)
 
   character Character @relation(fields: [characterId], references: [id])
-  faction   Faction   @relation(fields: [factionId], references: [id])
+  race      Race      @relation(fields: [raceId], references: [id])
 
-  @@unique([characterId, factionId])
+  @@unique([characterId, raceId])
   @@map("reputations")
 }
 

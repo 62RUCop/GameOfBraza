@@ -1,5 +1,5 @@
-import type { Bronze } from "./types.js";
-import type { RuleConfig } from "./config.js";
+import type { Bronze } from "./types";
+import type { RuleConfig } from "./config";
 
 export interface CurrencyDisplay {
   gold: number;

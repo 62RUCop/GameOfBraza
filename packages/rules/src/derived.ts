@@ -1,5 +1,5 @@
-import type { DerivedStats, StatValue } from "./types.js";
-import type { RuleConfig } from "./config.js";
+import type { DerivedStats, StatValue } from "./types";
+import type { RuleConfig } from "./config";
 
 export interface RawStats {
   str: StatValue;

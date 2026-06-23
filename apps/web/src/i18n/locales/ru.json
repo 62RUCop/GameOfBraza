@@ -1,0 +1,52 @@
+{
+  "common": {
+    "appName": "Game of Braza",
+    "loading": "Загрузка…",
+    "save": "Сохранить",
+    "cancel": "Отмена",
+    "delete": "Удалить",
+    "edit": "Редактировать",
+    "confirm": "Подтвердить",
+    "back": "Назад",
+    "signOut": "Выйти",
+    "manualOverride": "Закреплено вручную",
+    "resetToComputed": "Вернуть авторасчёт"
+  },
+  "auth": {
+    "signIn": "Войти",
+    "email": "Email",
+    "password": "Пароль",
+    "invalidCredentials": "Неверный email или пароль"
+  },
+  "characters": {
+    "title": "Персонажи",
+    "createNew": "Создать персонажа",
+    "empty": "У вас пока нет персонажей",
+    "npc": "NPC",
+    "unallocatedPoints": "Нераспределённых очков: {{count}}"
+  },
+  "sheet": {
+    "tabs": {
+      "description": "Описание",
+      "attributes": "Характеристики",
+      "equipment": "Снаряжение",
+      "skills": "Скиллы",
+      "backpack": "Рюкзак",
+      "reputation": "Репутация",
+      "notes": "Заметки"
+    }
+  },
+  "attributes": {
+    "strength": "Сила",
+    "dexterity": "Ловкость",
+    "intelligence": "Интеллект",
+    "spirit": "Дух",
+    "endurance": "Выносливость",
+    "luck": "Удача",
+    "hpMax": "Макс. HP",
+    "manaMax": "Макс. мана",
+    "apMax": "Макс. ОД",
+    "slots": "Ячейки способностей",
+    "critBonus": "Бонус крита"
+  }
+}

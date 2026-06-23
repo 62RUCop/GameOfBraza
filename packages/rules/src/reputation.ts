@@ -1,4 +1,4 @@
-import type { ReputationLabel, ReputationValue } from "./types.js";
+import type { ReputationLabel, ReputationValue } from "./types";
 
 /**
  * Map a reputation value to its display label (§3.9).
