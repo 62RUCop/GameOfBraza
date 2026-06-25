@@ -45,18 +45,18 @@
 
 ## 🎯 Векторы развития
 
-### 1. Автоматизация развёртывания «в один файл» ⬜ — приоритет
+### 1. Автоматизация развёртывания «в один файл» ✅ — приоритет
 Цель: на чистом сервере запуск одного скрипта поднимает всё и сразу даёт рабочий сайт.
-- ⬜ `Dockerfile` для веба — multi-stage, `output: "standalone"` в `next.config.ts`.
-- ⬜ `docker-compose.yml`: сервисы `postgres` (с volume для персистентности и healthcheck) и `web`.
-- ⬜ Bootstrap-скрипт (`start.sh` / `make up`), который:
-  - поднимает контейнер БД, если его нет; ждёт `healthy`;
-  - применяет миграции (`prisma migrate deploy`);
-  - идемпотентно засевает БД (только если пустая);
+- ✅ `Dockerfile` для веба (`apps/web/Dockerfile`) — multi-stage (`deps`/`builder`/`migrator`/`runner`), `output: "standalone"` + `outputFileTracingRoot` в `next.config.ts`.
+- ✅ `docker-compose.yml`: сервисы `db` (postgres:16-alpine, volume `db_data` + healthcheck), `migrate` (одноразовый) и `web`.
+- ✅ Bootstrap-скрипт (`start.sh` / `make up`), который:
+  - поднимает контейнер БД; ждёт `healthy` (через `depends_on: service_healthy`);
+  - применяет миграции (`prisma migrate deploy`) в сервисе `migrate`;
+  - идемпотентно засевает БД (upsert; `web` стартует после `service_completed_successfully`);
   - стартует сервер и печатает URL `http://localhost:3000`.
-- ⬜ Генерация `AUTH_SECRET` при первом запуске, если не задан; `.env.production.example`.
-- ⬜ Идемпотентный seed (`upsert` везде) + флаг «демо-данные» для быстрой проверки.
-- ⬜ README-раздел «Деплой одной командой».
+- ✅ Генерация `AUTH_SECRET` при первом запуске, если не задан; `.env.production.example`.
+- ✅ Идемпотентный seed (`upsert` везде) + первичный admin из ENV (`initial-admin.ts`) + флаг `SEED_DEMO` (Михалыч).
+- ✅ README-раздел «Деплой одной командой».
 
 ### 2. Публичный API + мобильное приложение ⬜
 Мобильный клиент — это только фронтенд, общающийся с основным сервером по API. **Предусловие** — вынести мутации из Server Actions в стабильный публичный API.

@@ -1,0 +1,45 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Dependencies (re-installed inside the image)
+**/node_modules
+.pnpm-store
+
+# Build outputs / caches
+**/.next
+**/dist
+**/build
+**/out
+**/.turbo
+*.tsbuildinfo
+**/next-env.d.ts
+
+# Env / secrets — runtime env is injected by docker-compose
+.env
+.env.*
+!.env.production.example
+
+# Tests / coverage
+coverage
+**/test-results
+**/playwright-report
+**/blob-report
+**/playwright/.cache
+
+# Editor / OS
+.idea
+.vscode
+.DS_Store
+Thumbs.db
+
+# Local data / logs
+**/*.log
+/uploads
+/tmp
+
+# Docker / deploy artefacts (not needed inside the build context)
+Dockerfile
+docker-compose.yml
+.dockerignore

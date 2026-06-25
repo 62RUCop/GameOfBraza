@@ -1,0 +1,80 @@
+name: gameofbraza
+
+# Полный стек одной командой: PostgreSQL + миграции/сиды + веб-сервер.
+# Запуск: ./start.sh  (или: docker compose up -d --build)
+# Переменные читаются из .env (см. .env.production.example).
+
+services:
+  # ─── База данных ──────────────────────────────────────────────────────────────
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-gob_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-gob_password}
+      POSTGRES_DB: ${POSTGRES_DB:-gameofbraza}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-gob_user} -d ${POSTGRES_DB:-gameofbraza}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 5s
+    # По умолчанию БД доступна только внутри сети compose. Чтобы подключиться
+    # с хоста (Prisma Studio и т.п.) — раскомментируй:
+    # ports:
+    #   - "5432:5432"
+
+  # ─── Одноразовая миграция + идемпотентный сид ─────────────────────────────────
+  migrate:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      target: migrator
+    restart: "no"
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql://${POSTGRES_USER:-gob_user}:${POSTGRES_PASSWORD:-gob_password}@db:5432/${POSTGRES_DB:-gameofbraza}}
+      NODE_ENV: production
+      # Первичный admin (создаётся сидом, если задан пароль). Идемпотентно.
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      # Демо-данные (персонаж «Михалыч» + dev-пользователи). Для прода — false.
+      SEED_DEMO: ${SEED_DEMO:-false}
+
+  # ─── Веб-сервер (Next.js standalone) ──────────────────────────────────────────
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      target: runner
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql://${POSTGRES_USER:-gob_user}:${POSTGRES_PASSWORD:-gob_password}@db:5432/${POSTGRES_DB:-gameofbraza}}
+      NODE_ENV: production
+      AUTH_SECRET: "${AUTH_SECRET:?AUTH_SECRET is not set — run ./start.sh or: openssl rand -hex 32}"
+      AUTH_URL: ${AUTH_URL:-http://localhost:3000}
+      # Self-host за compose/прокси: доверяем заголовкам Host (NextAuth v5).
+      AUTH_TRUST_HOST: "true"
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
+    ports:
+      - "${WEB_PORT:-3000}:3000"
+    healthcheck:
+      # http.get не идёт по редиректам (307 на /sign-in указывает на публичный
+      # URL, недоступный внутри контейнера). Любой ответ < 500 = сервер жив.
+      test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:3000/',r=>process.exit(r.statusCode<500?0:1)).on('error',()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+volumes:
+  db_data:

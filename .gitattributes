@@ -1,0 +1,5 @@
+# Shell-скрипты и Makefile должны иметь LF-окончания, иначе ломаются на Linux
+# (deploy-сервер), даже если репозиторий клонируют под Windows.
+*.sh text eol=lf
+Makefile text eol=lf
+start.sh text eol=lf

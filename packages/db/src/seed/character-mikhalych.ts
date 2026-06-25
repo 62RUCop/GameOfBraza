@@ -1,26 +1,35 @@
 /**
- * One-shot seed: creates the character "Михалыч" under player@gob.local.
+ * One-shot seed: creates the character "Михалыч" under alexmgood@gmail.com.
  * Run with: pnpm --filter @gob/db exec tsx src/seed/character-mikhalych.ts
  *
  * Idempotent: skips if a non-deleted character named "Михалыч" already exists
  * for that owner.
+ *
+ * Значения характеристик взяты из листа игрока (патч от 2026-06). Производные
+ * (HP/мана/ОД/бабл/крит) пересчитаны через packages/rules, НЕ хардкодом:
+ *   HP_max  = STR 8 × 4  = 32   (в прошлом патче считалось от END — это был баг)
+ *   Mana    = SPI 12 × 10 = 120
+ *   AP_max  = END 9 × 10  = 90
+ *   slots   = INT 8
+ *   crit    = floor(LUC 9 / 2) = 4
+ *   bubble  = 3 заряда (SPI 12 пересекает пороги {6,9,12})
  */
 
 import { PrismaClient } from "@prisma/client";
+import { fileURLToPath } from "url";
+import { computeDerived, DEFAULT_RULE_CONFIG } from "@gob/rules";
 
-const prisma = new PrismaClient();
+const OWNER_EMAIL = "alexmgood@gmail.com";
 
-const OWNER_EMAIL = "player@gob.local";
-
-// ─── Additional races needed for reputation ───────────────────────────────────
-const EXTRA_RACES = [
-  { name: "Мехи",       description: "Механические существа" },
-  { name: "Святые",     description: "Представители светлых сил" },
-  { name: "Разбойники", description: "Криминальное подполье" },
-  { name: "Охотники",   description: "Охотники на монстров" },
-  { name: "Истина",     description: "Хранители истины" },
-  { name: "Нежить",     description: "Мертворождённые существа" },
-];
+// ─── Base stats (лист игрока) ─────────────────────────────────────────────────
+const STATS = {
+  strength: 8,
+  endurance: 9,
+  spirit: 12,
+  intelligence: 8,
+  dexterity: 8,
+  luck: 9,
+};
 
 // ─── Skills to create ─────────────────────────────────────────────────────────
 const SKILLS_TO_CREATE = [
@@ -47,7 +56,7 @@ const SKILLS_TO_CREATE = [
   },
 ];
 
-// ─── Active effects (buffs & debuffs) ────────────────────────────────────────
+// ─── Active effects (buffs & debuffs) → в заметки runtimeState.activeEffects ───
 const ACTIVE_EFFECTS = [
   // Дебафы
   { name: "Бомж",                    type: "debuff", description: "Социальный статус" },
@@ -67,7 +76,20 @@ const ACTIVE_EFFECTS = [
   { name: "Стальная борода",         type: "buff",   description: "+1 к защите от ударов по лицу" },
 ];
 
-async function main() {
+// ─── Reputation (патч от 2026-06: только 9 базовых фракций) ───────────────────
+const REPUTATION: Array<{ race: string; value: number }> = [
+  { race: "Люди",      value:  1 },
+  { race: "Гномы",     value: -1 },
+  { race: "Насекомые", value: -1 },
+  { race: "Орки",      value: -1 },
+  { race: "Демоны",    value: -1 },
+  { race: "Наги",      value: -1 },
+  { race: "Эльфы",     value:  1 },
+  { race: "Звери",     value:  1 },
+  { race: "Дриады",    value: -1 },
+];
+
+export async function seedMikhalych(prisma: PrismaClient) {
   // ── Owner ──────────────────────────────────────────────────────────────────
   const owner = await prisma.account.findUnique({ where: { email: OWNER_EMAIL } });
   if (!owner) throw new Error(`User ${OWNER_EMAIL} not found — run pnpm db:seed first`);
@@ -80,12 +102,6 @@ async function main() {
     console.log(`[mikhalych] Character already exists (id=${existing.id}), skipping.`);
     return;
   }
-
-  // ── Extra races ────────────────────────────────────────────────────────────
-  for (const r of EXTRA_RACES) {
-    await prisma.race.upsert({ where: { name: r.name }, create: r, update: { description: r.description } });
-  }
-  console.log("[mikhalych] Extra races ensured");
 
   // ── Skills ─────────────────────────────────────────────────────────────────
   const skillIds: Record<string, string> = {};
@@ -100,39 +116,21 @@ async function main() {
 
   // ── Races for reputation ───────────────────────────────────────────────────
   const raceMap: Record<string, string> = {};
-  const raceNames = [
-    "Мехи", "Люди", "Гномы", "Святые", "Насекомые",
-    "Орки", "Разбойники", "Демоны", "Наги", "Эльфы",
-    "Звери", "Охотники", "Истина", "Дриады", "Нежить",
-  ];
-  for (const name of raceNames) {
-    const race = await prisma.race.findUnique({ where: { name } });
-    if (race) raceMap[name] = race.id;
-    else console.warn(`[mikhalych] Race "${name}" not found — skipping reputation entry`);
+  for (const { race } of REPUTATION) {
+    const r = await prisma.race.findUnique({ where: { name: race } });
+    if (r) raceMap[race] = r.id;
+    else console.warn(`[mikhalych] Race "${race}" not found — skipping reputation entry`);
   }
-
-  // ── Reputation values ──────────────────────────────────────────────────────
-  const REPUTATION: Array<{ race: string; value: number }> = [
-    { race: "Мехи",       value:  0 },
-    { race: "Люди",       value:  1 },
-    { race: "Гномы",      value: -1 },
-    { race: "Святые",     value:  5 },
-    { race: "Насекомые",  value: -1 },
-    { race: "Орки",       value: -1 },
-    { race: "Разбойники", value: -1 },
-    { race: "Демоны",     value: -1 },
-    { race: "Наги",       value: -1 },
-    { race: "Эльфы",      value:  1 },
-    { race: "Звери",      value:  1 },
-    { race: "Охотники",   value:  2 },
-    { race: "Истина",     value: -1 },
-    { race: "Дриады",     value: -1 },
-    { race: "Нежить",     value: -5 },
-  ];
-
-  // ── Create character ───────────────────────────────────────────────────────
   const humanRace = await prisma.race.findUnique({ where: { name: "Люди" } });
 
+  // ── Derived (через packages/rules) ─────────────────────────────────────────
+  const derived = computeDerived(
+    { str: STATS.strength, dex: STATS.dexterity, int: STATS.intelligence, spi: STATS.spirit, end: STATS.endurance, luc: STATS.luck },
+    {},
+    DEFAULT_RULE_CONFIG,
+  );
+
+  // ── Create character ───────────────────────────────────────────────────────
   const character = await prisma.character.create({
     data: {
       name: "Михалыч",
@@ -149,76 +147,64 @@ async function main() {
         "2. Принести капельку травнику",
       ].join("\n"),
 
-      // ── Attributes ────────────────────────────────────────────────────────
-      attributes: {
-        create: {
-          strength:     8,
-          endurance:    9,
-          spirit:       12,
-          intelligence: 8,
-          dexterity:    8,
-          luck:         9,
-        },
-      },
+      attributes: { create: STATS },
 
-      // ── Runtime state ──────────────────────────────────────────────────────
-      // HP = Выносливость 9, Мана = Дух 12×... will be computed; set reasonable defaults
       runtimeState: {
         create: {
-          currentHp:        40,
-          hpMaxComputed:    36,  // Выносливость 9 × 4
-          currentMana:      36,
-          manaMaxComputed:  120, // Дух 12 × 10
-          currentAp:        30,
-          apMaxComputed:    90,  // Выносливость 9 × 10
-          bubbleActive:     false,
-          bubbleCharges:    3,   // Дух 12 → 3 бабла
-          activeEffects:    ACTIVE_EFFECTS as never,
+          currentHp:       derived.hpMax,
+          hpMaxComputed:   derived.hpMax,
+          currentMana:     derived.manaMax,
+          manaMaxComputed: derived.manaMax,
+          currentAp:       derived.apMax,
+          apMaxComputed:   derived.apMax,
+          bubbleActive:    false,
+          bubbleCharges:   3,
+          activeEffects:   ACTIVE_EFFECTS as never,
         },
       },
 
-      // ── Currency ───────────────────────────────────────────────────────────
-      currency: { create: { balanceBronze: 20 } }, // немного бронзы
+      currency: { create: { balanceBronze: 20 } },
 
-      // ── Innate ability ─────────────────────────────────────────────────────
+      // ── Врождёнка «Бомж», прокачана до 3-го ранга ──────────────────────────
       innateAbility: {
         create: {
           name: "Бомж",
-          description: "Хавать с мусорки. Просить милостыню. Выживать в любых условиях.",
-          currentRank: 1,
+          description: [
+            "1 ур.: Хавать с мусорки",
+            "2 ур.: Бронзовый в говне",
+            "3 ур.: Просить милостыню",
+          ].join("\n"),
+          currentRank: 3,
         },
       },
 
-      // ── Pet ────────────────────────────────────────────────────────────────
       pet: {
         create: {
           name: "Котик",
           species: "Кот",
           level: 1,
           foodProgress: 0,
-          statBonuses: { luck: 2, food: ["мясо", "молоко"] } as never,
+          statBonuses: { luck: 2 } as never,
         },
       },
 
-      // ── Skills ────────────────────────────────────────────────────────────
       characterSkills: {
         create: SKILLS_TO_CREATE.map((s) => ({ skillId: skillIds[s.name]! })),
       },
 
-      // ── Reputation ────────────────────────────────────────────────────────
       reputations: {
-        create: REPUTATION
-          .filter((r) => raceMap[r.race])
-          .map((r) => ({ raceId: raceMap[r.race]!, value: r.value })),
+        create: REPUTATION.filter((r) => raceMap[r.race]).map((r) => ({
+          raceId: raceMap[r.race]!,
+          value: r.value,
+        })),
       },
 
-      // ── Backpack ──────────────────────────────────────────────────────────
       backpackSlots: {
         create: [
-          { slotIndex: 0, itemName: "Клининг набор",       itemType: "misc"    as const, quantity: 1 },
-          { slotIndex: 1, itemName: "Зелье силы (+1)",      itemType: "potion"  as const, quantity: 1, description: "+1 к Силе на один бой" },
-          { slotIndex: 2, itemName: "Ахуенная дубина",      itemType: "misc"    as const, quantity: 1, description: "Т1, самодельная" },
-          { slotIndex: 3, itemName: "Ремнабор",             itemType: "misc"    as const, quantity: 1 },
+          { slotIndex: 0, itemName: "Клининг набор",  itemType: "misc"   as const, quantity: 1 },
+          { slotIndex: 1, itemName: "Зелье силы (+1)", itemType: "potion" as const, quantity: 1, description: "+1 к Силе на один бой" },
+          { slotIndex: 2, itemName: "Ахуенная дубина", itemType: "misc"   as const, quantity: 1, description: "Т1, самодельная" },
+          { slotIndex: 3, itemName: "Ремнабор",        itemType: "misc"   as const, quantity: 1 },
         ],
       },
     },
@@ -226,34 +212,24 @@ async function main() {
 
   console.log(`[mikhalych] Character created (id=${character.id})`);
 
-  // ── Equipment (ItemInstance) — created after character ────────────────────
+  // ── Equipment (ItemInstance) ───────────────────────────────────────────────
   await prisma.itemInstance.create({
     data: {
       characterId: character.id,
       location: "equipped_body",
-      overrides: {
-        name: "Грудак автопочинки",
-        tier: 3,
-        description: "Автоматически чинится. Эффект: 100×4.",
-      },
+      overrides: { name: "Грудак автопочинки", tier: 3, description: "Автоматически чинится. Эффект: 100×4." },
     },
   });
-
   await prisma.itemInstance.create({
     data: {
       characterId: character.id,
       location: "equipped_weapon_left",
-      overrides: {
-        name: "Бабл щит",
-        tier: 4,
-        description: "Щит, генерирующий бабл-барьер. Т4.",
-      },
+      overrides: { name: "Бабл щит", tier: 4, description: "Щит, генерирующий бабл-барьер. Т4." },
     },
   });
-
   console.log("[mikhalych] Equipment created");
 
-  // ── Currency transaction (initial) ────────────────────────────────────────
+  // ── Initial currency transaction ───────────────────────────────────────────
   await prisma.currencyTransaction.create({
     data: {
       characterId: character.id,
@@ -266,6 +242,10 @@ async function main() {
   console.log("[mikhalych] Done!");
 }
 
-main()
-  .catch((e) => { console.error(e); process.exit(1); })
-  .finally(() => prisma.$disconnect());
+// ── CLI: запуск напрямую (pnpm --filter @gob/db exec tsx src/seed/character-mikhalych.ts) ──
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  const prisma = new PrismaClient();
+  seedMikhalych(prisma)
+    .catch((e) => { console.error(e); process.exit(1); })
+    .finally(() => prisma.$disconnect());
+}
