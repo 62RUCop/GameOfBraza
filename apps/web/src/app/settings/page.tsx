@@ -14,6 +14,11 @@ const ThemeToggleNoSSR = dynamic(
   { ssr: false },
 );
 
+const SheetLayoutToggleNoSSR = dynamic(
+  () => import("@/components/sheet-layout-toggle").then((m) => m.SheetLayoutToggle),
+  { ssr: false },
+);
+
 // ── Name form ────────────────────────────────────────────────────────────────
 
 const nameSchema = z.object({ name: z.string().min(1, "Имя не может быть пустым").max(64) });
@@ -33,7 +38,7 @@ function NameSection() {
     if ("error" in res) return;
     await update({ name: values.name });
     setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+    setTimeout(() => { setSaved(false); }, 2000);
   };
 
   return (
@@ -99,7 +104,7 @@ function PasswordSection() {
     }
     reset();
     setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+    setTimeout(() => { setSaved(false); }, 2000);
   };
 
   return (
@@ -168,6 +173,14 @@ export default function SettingsPage() {
       <section className="space-y-4">
         <h2 className="text-base font-semibold">Тема</h2>
         <ThemeToggleNoSSR />
+      </section>
+      <hr className="border-border" />
+      <section className="space-y-4">
+        <h2 className="text-base font-semibold">Отображение анкеты</h2>
+        <p className="text-sm text-muted-foreground">
+          Как показывать поля персонажа: переключаться по вкладкам или выводить всё на одном экране.
+        </p>
+        <SheetLayoutToggleNoSSR />
       </section>
     </div>
   );

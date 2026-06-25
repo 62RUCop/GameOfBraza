@@ -61,9 +61,9 @@ export function EquipmentPickerDialog({ characterId, slot, slotLabel, slotType, 
         setTemplates(data);
         setLoading(false);
       })
-      .catch(() => setLoading(false));
+      .catch(() => { setLoading(false); });
 
-    return () => ctrl.abort();
+    return () => { ctrl.abort(); };
   }, [query, slotType]);
 
   function pick(templateId: string) {
@@ -102,7 +102,7 @@ export function EquipmentPickerDialog({ characterId, slot, slotLabel, slotType, 
 
     let statBonusesParsed: Record<string, number> | undefined;
     if (form.statBonuses.trim()) {
-      try { statBonusesParsed = JSON.parse(form.statBonuses); }
+      try { statBonusesParsed = JSON.parse(form.statBonuses) as Record<string, number>; }
       catch { return; }
     }
 
@@ -126,7 +126,7 @@ export function EquipmentPickerDialog({ characterId, slot, slotLabel, slotType, 
     <div
       ref={backdropRef}
       className="fixed inset-0 z-50 flex items-end justify-center sm:items-center bg-black/40 backdrop-blur-sm p-4"
-      onClick={(e) => { if (e.target === backdropRef.current) onClose(); }}
+      onMouseDown={(e) => { if (e.target === backdropRef.current) onClose(); }}
     >
       <div className="w-full max-w-md rounded-xl border bg-background shadow-xl flex flex-col max-h-[80vh]">
         {/* Header */}
@@ -140,7 +140,7 @@ export function EquipmentPickerDialog({ characterId, slot, slotLabel, slotType, 
             {modifying && (
               <button
                 type="button"
-                onClick={() => setModifying(null)}
+                onClick={() => { setModifying(null); }}
                 className="text-xs text-muted-foreground hover:text-foreground transition-colors"
               >
                 ← Назад
@@ -160,7 +160,7 @@ export function EquipmentPickerDialog({ characterId, slot, slotLabel, slotType, 
         {modifying ? (
           <ModifyFormView
             form={modifying.form}
-            onChange={(form) => setModifying((prev) => prev ? { ...prev, form } : null)}
+            onChange={(form) => { setModifying((prev) => prev ? { ...prev, form } : null); }}
             onSubmit={submitModify}
             pending={pending}
           />
@@ -173,7 +173,7 @@ export function EquipmentPickerDialog({ characterId, slot, slotLabel, slotType, 
                 type="text"
                 placeholder="Поиск по названию…"
                 value={query}
-                onChange={(e) => setQuery(e.target.value)}
+                onChange={(e) => { setQuery(e.target.value); }}
                 className="w-full rounded-md border bg-muted/40 px-3 py-1.5 text-sm outline-none focus:ring-1 focus:ring-primary"
               />
             </div>
@@ -199,7 +199,7 @@ export function EquipmentPickerDialog({ characterId, slot, slotLabel, slotType, 
                   <button
                     type="button"
                     disabled={pending}
-                    onClick={() => pick(t.id)}
+                    onClick={() => { pick(t.id); }}
                     className="flex items-start gap-3 flex-1 text-left hover:opacity-80 transition-opacity min-w-0"
                   >
                     <TierBadge tier={t.tier} />
@@ -210,7 +210,7 @@ export function EquipmentPickerDialog({ characterId, slot, slotLabel, slotType, 
                         {t.damageDice && <>{t.damageDice} · </>}
                         {t.statBonuses &&
                           Object.entries(t.statBonuses)
-                            .map(([k, v]) => `+${v} ${k}`)
+                            .map(([k, v]) => `+${String(v)} ${k}`)
                             .join(", ")}
                       </p>
                       {t.description && (
@@ -221,7 +221,7 @@ export function EquipmentPickerDialog({ characterId, slot, slotLabel, slotType, 
                   <button
                     type="button"
                     disabled={pending}
-                    onClick={() => openModify(t)}
+                    onClick={() => { openModify(t); }}
                     className="shrink-0 self-center text-xs text-blue-600 hover:text-blue-800 transition-colors whitespace-nowrap"
                   >
                     Модиф.
@@ -235,7 +235,7 @@ export function EquipmentPickerDialog({ characterId, slot, slotLabel, slotType, 
               {!showCustom ? (
                 <button
                   type="button"
-                  onClick={() => setShowCustom(true)}
+                  onClick={() => { setShowCustom(true); }}
                   className="w-full text-sm text-muted-foreground hover:text-foreground transition-colors text-left"
                 >
                   + Создать предмет вручную
@@ -246,7 +246,7 @@ export function EquipmentPickerDialog({ characterId, slot, slotLabel, slotType, 
                     type="text"
                     placeholder="Название предмета…"
                     value={customName}
-                    onChange={(e) => setCustomName(e.target.value)}
+                    onChange={(e) => { setCustomName(e.target.value); }}
                     onKeyDown={(e) => { if (e.key === "Enter") pickCustom(); }}
                     autoFocus
                     className="flex-1 rounded-md border bg-muted/40 px-3 py-1.5 text-sm outline-none focus:ring-1 focus:ring-primary"
@@ -282,7 +282,7 @@ function ModifyFormView({
 }) {
   const [jsonError, setJsonError] = useState(false);
 
-  function setField<K extends keyof ModifyForm>(k: K, v: string) {
+  function setField(k: keyof ModifyForm, v: string) {
     onChange({ ...form, [k]: v });
     if (k === "statBonuses") {
       try { if (v.trim()) JSON.parse(v); setJsonError(false); }
@@ -300,7 +300,7 @@ function ModifyFormView({
         <label className="text-xs text-muted-foreground">Название</label>
         <input
           value={form.name}
-          onChange={(e) => setField("name", e.target.value)}
+          onChange={(e) => { setField("name", e.target.value); }}
           className="w-full rounded border bg-background px-2 py-1.5 text-sm outline-none focus:ring-2 focus:ring-ring"
         />
       </div>
@@ -311,7 +311,7 @@ function ModifyFormView({
           <input
             type="number" min={1} max={10}
             value={form.tier}
-            onChange={(e) => setField("tier", e.target.value)}
+            onChange={(e) => { setField("tier", e.target.value); }}
             className="w-full rounded border bg-background px-2 py-1.5 text-sm outline-none focus:ring-2 focus:ring-ring"
           />
         </div>
@@ -319,7 +319,7 @@ function ModifyFormView({
           <label className="text-xs text-muted-foreground">Семейство оружия</label>
           <input
             value={form.weaponFamily}
-            onChange={(e) => setField("weaponFamily", e.target.value)}
+            onChange={(e) => { setField("weaponFamily", e.target.value); }}
             placeholder="—"
             className="w-full rounded border bg-background px-2 py-1.5 text-sm outline-none focus:ring-2 focus:ring-ring"
           />
@@ -328,7 +328,7 @@ function ModifyFormView({
           <label className="text-xs text-muted-foreground">Кубик урона</label>
           <input
             value={form.damageDice}
-            onChange={(e) => setField("damageDice", e.target.value)}
+            onChange={(e) => { setField("damageDice", e.target.value); }}
             placeholder="напр. 1d6"
             className="w-full rounded border bg-background px-2 py-1.5 text-sm outline-none focus:ring-2 focus:ring-ring"
           />
@@ -337,7 +337,7 @@ function ModifyFormView({
           <label className="text-xs text-muted-foreground">Бонусный крит-кубик</label>
           <input
             value={form.bonusCritDice}
-            onChange={(e) => setField("bonusCritDice", e.target.value)}
+            onChange={(e) => { setField("bonusCritDice", e.target.value); }}
             placeholder="напр. 1d4"
             className="w-full rounded border bg-background px-2 py-1.5 text-sm outline-none focus:ring-2 focus:ring-ring"
           />
@@ -348,7 +348,7 @@ function ModifyFormView({
         <label className="text-xs text-muted-foreground">Бонусы характеристик (JSON)</label>
         <textarea
           value={form.statBonuses}
-          onChange={(e) => setField("statBonuses", e.target.value)}
+          onChange={(e) => { setField("statBonuses", e.target.value); }}
           rows={2}
           placeholder='{"strength": 2}'
           className={cn(
@@ -363,7 +363,7 @@ function ModifyFormView({
         <label className="text-xs text-muted-foreground">Описание</label>
         <textarea
           value={form.description}
-          onChange={(e) => setField("description", e.target.value)}
+          onChange={(e) => { setField("description", e.target.value); }}
           rows={2}
           className="w-full resize-none rounded border bg-background px-2 py-1.5 text-sm outline-none focus:ring-2 focus:ring-ring"
         />

@@ -6,6 +6,31 @@ import type { Prisma } from "@gob/db";
 import { prisma } from "@gob/db";
 import { computeDerived, DEFAULT_RULE_CONFIG } from "@gob/rules";
 
+export async function deleteCharacter(characterId: string) {
+  const session = await auth();
+  if (!session) return { error: "Не авторизован" };
+
+  const character = await prisma.character.findFirst({
+    where: { id: characterId, deletedAt: null },
+    select: { ownerId: true },
+  });
+
+  if (!character) return { error: "Персонаж не найден" };
+
+  const { role, id: userId } = session.user;
+  if (role === "player" && character.ownerId !== userId) {
+    return { error: "Нет прав" };
+  }
+
+  await prisma.character.update({
+    where: { id: characterId },
+    data: { deletedAt: new Date() },
+  });
+
+  revalidatePath("/characters");
+  return { ok: true };
+}
+
 export async function createCharacter(input: { name: string; ownerId: string }) {
   const session = await auth();
   if (!session) return { error: "Не авторизован" };
@@ -150,6 +175,79 @@ export async function allocatePoints(input: {
         },
       }),
     ] : []),
+  ]);
+
+  revalidatePath(`/characters/${input.characterId}`);
+  return { ok: true };
+}
+
+// ─── Direct base attribute set (owner + gm/admin) ────────────────────────────
+
+export async function setBaseAttribute(input: {
+  characterId: string;
+  stat: StatKey;
+  value: number;
+}) {
+  const session = await auth();
+  if (!session) return { error: "Не авторизован" };
+
+  if (input.value < 0 || input.value > 255) {
+    return { error: "Значение должно быть в диапазоне 0–255" };
+  }
+
+  const character = await prisma.character.findFirst({
+    where: { id: input.characterId, deletedAt: null },
+    include: { attributes: true, runtimeState: true },
+  });
+  if (!character) return { error: "Персонаж не найден" };
+
+  const isOwner = character.ownerId === session.user.id;
+  const isGmOrAdmin = session.user.role === "gm" || session.user.role === "admin";
+  if (!isOwner && !isGmOrAdmin) return { error: "Нет прав" };
+
+  if (!character.attributes) return { error: "Характеристики не инициализированы" };
+
+  const newAttrs = {
+    strength: character.attributes.strength,
+    dexterity: character.attributes.dexterity,
+    intelligence: character.attributes.intelligence,
+    spirit: character.attributes.spirit,
+    endurance: character.attributes.endurance,
+    luck: character.attributes.luck,
+    [input.stat]: input.value,
+  };
+
+  const derived = computeDerived(
+    { str: newAttrs.strength, dex: newAttrs.dexterity, int: newAttrs.intelligence, spi: newAttrs.spirit, end: newAttrs.endurance, luc: newAttrs.luck },
+    { hp: 0 },
+    DEFAULT_RULE_CONFIG,
+  );
+
+  const rt = character.runtimeState;
+
+  await prisma.$transaction([
+    prisma.characterAttributes.update({
+      where: { characterId: input.characterId },
+      data: { [input.stat]: input.value },
+    }),
+    prisma.auditLog.create({
+      data: {
+        characterId: input.characterId,
+        actorId: session.user.id,
+        action: "set_attribute",
+        field: input.stat,
+        oldValue: { value: character.attributes[input.stat] },
+        newValue: { value: input.value },
+      },
+    }),
+    ...(rt ? [prisma.runtimeState.update({
+      where: { characterId: input.characterId },
+      data: {
+        ...(!rt.hpMaxManualOverride ? { hpMaxComputed: derived.hpMax } : {}),
+        ...(!rt.manaMaxManualOverride ? { manaMaxComputed: derived.manaMax } : {}),
+        ...(!rt.apMaxManualOverride ? { apMaxComputed: derived.apMax } : {}),
+      },
+    })] : []),
   ]);
 
   revalidatePath(`/characters/${input.characterId}`);
@@ -359,7 +457,9 @@ export async function updateCharacterInfo(input: {
   characterId: string;
   name?: string;
   raceId?: string | null;
+  raceName?: string | null;
   groupId?: string | null;
+  groupName?: string | null;
   questProgressStage?: number;
   quenta?: string | null;
   mainQuest?: string | null;

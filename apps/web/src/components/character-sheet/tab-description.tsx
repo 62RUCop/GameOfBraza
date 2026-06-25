@@ -22,14 +22,14 @@ export function TabDescription({ character, canEdit }: Props) {
         <RacePickerDialog
           characterId={character.id}
           currentRaceId={character.raceId ?? null}
-          onClose={() => setRacePickerOpen(false)}
+          onClose={() => { setRacePickerOpen(false); }}
         />
       )}
       {groupPickerOpen && (
         <GroupPickerDialog
           characterId={character.id}
           currentGroupId={character.groupId ?? null}
-          onClose={() => setGroupPickerOpen(false)}
+          onClose={() => { setGroupPickerOpen(false); }}
         />
       )}
       <Section title="Основное">
@@ -40,15 +40,15 @@ export function TabDescription({ character, canEdit }: Props) {
           onCommit={(v) => updateCharacterInfo({ characterId: character.id, name: v })}
         />
         <RaceField
-          value={character.race?.name ?? "—"}
+          value={character.raceName ?? character.race?.name ?? "—"}
           canEdit={canEdit}
-          onOpen={() => setRacePickerOpen(true)}
+          onOpen={() => { setRacePickerOpen(true); }}
         />
         <PickerField
           label="Группировка"
-          value={character.group?.name ?? "—"}
+          value={character.groupName ?? character.group?.name ?? "—"}
           canEdit={canEdit}
-          onOpen={() => setGroupPickerOpen(true)}
+          onOpen={() => { setGroupPickerOpen(true); }}
         />
         <EditableNumberField
           label="Стадия квеста"
@@ -72,8 +72,8 @@ export function TabDescription({ character, canEdit }: Props) {
                   <span className="text-sm text-muted-foreground">Стоимость</span>
                   <span className="text-sm font-medium">
                     {[
-                      s.manaCost != null && `💧 ${s.manaCost}`,
-                      s.apCost != null && `⚡ ${s.apCost} ОД`,
+                      s.manaCost != null && `💧 ${String(s.manaCost)}`,
+                      s.apCost != null && `⚡ ${String(s.apCost)} ОД`,
                     ].filter(Boolean).join("  ")}
                   </span>
                 </div>

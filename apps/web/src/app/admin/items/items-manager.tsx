@@ -60,7 +60,7 @@ function templateToForm(t: ItemTemplate): FormData {
     scalingCoefficient: t.scalingCoefficient?.toString() ?? "",
     statBonuses: t.statBonuses ? JSON.stringify(t.statBonuses, null, 2) : "",
     hungerRestored: t.hungerRestored?.toString() ?? "",
-    referencePrice: t.referencePrice.toString(),
+    referencePrice: t.referencePrice,
     description: t.description ?? "",
   };
 }
@@ -80,7 +80,7 @@ export function ItemsManager({ items }: { items: ItemTemplate[] }) {
   return (
     <div className="space-y-4">
       {editingId === "new" ? (
-        <ItemForm initialData={newFormData} onCancel={() => setEditingId(null)} onSaved={() => setEditingId(null)} />
+        <ItemForm initialData={newFormData} onCancel={() => { setEditingId(null); }} onSaved={() => { setEditingId(null); }} />
       ) : (
         <button
           onClick={openNew}
@@ -91,7 +91,7 @@ export function ItemsManager({ items }: { items: ItemTemplate[] }) {
       )}
 
       <label className="flex items-center gap-2 text-sm cursor-pointer">
-        <input type="checkbox" checked={showDeleted} onChange={(e) => setShowDeleted(e.target.checked)} />
+        <input type="checkbox" checked={showDeleted} onChange={(e) => { setShowDeleted(e.target.checked); }} />
         Показать удалённые
       </label>
 
@@ -119,13 +119,13 @@ export function ItemsManager({ items }: { items: ItemTemplate[] }) {
                     <ItemForm
                       initialData={templateToForm(item)}
                       editingId={item.id}
-                      onCancel={() => setEditingId(null)}
-                      onSaved={() => setEditingId(null)}
+                      onCancel={() => { setEditingId(null); }}
+                      onSaved={() => { setEditingId(null); }}
                     />
                   </td>
                 </tr>
               ) : (
-                <ItemRow key={item.id} item={item} onEdit={() => setEditingId(item.id)} onCopy={() => openCopy(item)} />
+                <ItemRow key={item.id} item={item} onEdit={() => { setEditingId(item.id); }} onCopy={() => { openCopy(item); }} />
               )
             )}
           </tbody>
@@ -187,79 +187,79 @@ function ItemForm({
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         <div className="space-y-1">
           <label className="text-xs text-muted-foreground">Название *</label>
-          <input value={form.name} onChange={(e) => setField("name", e.target.value)}
+          <input value={form.name} onChange={(e) => { setField("name", e.target.value); }}
             className="w-full rounded border bg-background px-2 py-1.5 text-sm outline-none focus:ring-2 focus:ring-ring" />
         </div>
         <div className="space-y-1">
           <label className="text-xs text-muted-foreground">Слот *</label>
-          <select value={form.slotType} onChange={(e) => setField("slotType", e.target.value as SlotType)}
+          <select value={form.slotType} onChange={(e) => { setField("slotType", e.target.value as SlotType); }}
             className="w-full rounded border bg-background px-2 py-1.5 text-sm outline-none">
             {SLOT_TYPES.map((s) => <option key={s} value={s}>{SLOT_LABELS[s]}</option>)}
           </select>
         </div>
         <div className="space-y-1">
           <label className="text-xs text-muted-foreground">Тир *</label>
-          <input type="number" min={1} max={10} value={form.tier} onChange={(e) => setField("tier", parseInt(e.target.value, 10) || 1)}
+          <input type="number" min={1} max={10} value={form.tier} onChange={(e) => { setField("tier", parseInt(e.target.value, 10) || 1); }}
             className="w-full rounded border bg-background px-2 py-1.5 text-sm outline-none focus:ring-2 focus:ring-ring" />
         </div>
         <div className="space-y-1">
           <label className="text-xs text-muted-foreground">Семейство оружия</label>
-          <input value={form.weaponFamily} onChange={(e) => setField("weaponFamily", e.target.value)}
+          <input value={form.weaponFamily} onChange={(e) => { setField("weaponFamily", e.target.value); }}
             className="w-full rounded border bg-background px-2 py-1.5 text-sm outline-none focus:ring-2 focus:ring-ring" placeholder="—" />
         </div>
         <div className="space-y-1">
           <label className="text-xs text-muted-foreground">Требуемая характеристика</label>
-          <select value={form.requiredAttribute} onChange={(e) => setField("requiredAttribute", e.target.value as StatAttribute | "")}
+          <select value={form.requiredAttribute} onChange={(e) => { setField("requiredAttribute", e.target.value as StatAttribute | ""); }}
             className="w-full rounded border bg-background px-2 py-1.5 text-sm outline-none">
             {STAT_ATTRIBUTES.map((a) => <option key={a} value={a}>{STAT_LABELS[a]}</option>)}
           </select>
         </div>
         <div className="space-y-1">
           <label className="text-xs text-muted-foreground">Кубик урона</label>
-          <input value={form.damageDice} onChange={(e) => setField("damageDice", e.target.value)}
+          <input value={form.damageDice} onChange={(e) => { setField("damageDice", e.target.value); }}
             className="w-full rounded border bg-background px-2 py-1.5 text-sm outline-none focus:ring-2 focus:ring-ring" placeholder="напр. 1d6" />
         </div>
         <div className="space-y-1">
           <label className="text-xs text-muted-foreground">Бонусный крит-кубик</label>
-          <input value={form.bonusCritDice} onChange={(e) => setField("bonusCritDice", e.target.value)}
+          <input value={form.bonusCritDice} onChange={(e) => { setField("bonusCritDice", e.target.value); }}
             className="w-full rounded border bg-background px-2 py-1.5 text-sm outline-none focus:ring-2 focus:ring-ring" placeholder="напр. 1d4" />
         </div>
         <div className="space-y-1">
           <label className="text-xs text-muted-foreground">Масштабирующая характеристика</label>
-          <select value={form.scalingAttribute} onChange={(e) => setField("scalingAttribute", e.target.value as StatAttribute | "")}
+          <select value={form.scalingAttribute} onChange={(e) => { setField("scalingAttribute", e.target.value as StatAttribute | ""); }}
             className="w-full rounded border bg-background px-2 py-1.5 text-sm outline-none">
             {STAT_ATTRIBUTES.map((a) => <option key={a} value={a}>{STAT_LABELS[a]}</option>)}
           </select>
         </div>
         <div className="space-y-1">
           <label className="text-xs text-muted-foreground">Коэффициент масштабирования</label>
-          <input type="number" step="0.001" value={form.scalingCoefficient} onChange={(e) => setField("scalingCoefficient", e.target.value)}
+          <input type="number" step="0.001" value={form.scalingCoefficient} onChange={(e) => { setField("scalingCoefficient", e.target.value); }}
             className="w-full rounded border bg-background px-2 py-1.5 text-sm outline-none focus:ring-2 focus:ring-ring" placeholder="—" />
         </div>
         <div className="space-y-1">
           <label className="text-xs text-muted-foreground">Восстановление сытости</label>
-          <input type="number" min={0} value={form.hungerRestored} onChange={(e) => setField("hungerRestored", e.target.value)}
+          <input type="number" min={0} value={form.hungerRestored} onChange={(e) => { setField("hungerRestored", e.target.value); }}
             className="w-full rounded border bg-background px-2 py-1.5 text-sm outline-none focus:ring-2 focus:ring-ring" placeholder="—" />
         </div>
         <div className="space-y-1">
           <label className="text-xs text-muted-foreground">Цена (бронза)</label>
-          <input type="number" min={0} step="0.01" value={form.referencePrice} onChange={(e) => setField("referencePrice", e.target.value)}
+          <input type="number" min={0} step="0.01" value={form.referencePrice} onChange={(e) => { setField("referencePrice", e.target.value); }}
             className="w-full rounded border bg-background px-2 py-1.5 text-sm outline-none focus:ring-2 focus:ring-ring" />
         </div>
         <div className="flex items-center gap-2 pt-5">
-          <input type="checkbox" id="isTwoHanded" checked={form.isTwoHanded} onChange={(e) => setField("isTwoHanded", e.target.checked)} />
+          <input type="checkbox" id="isTwoHanded" checked={form.isTwoHanded} onChange={(e) => { setField("isTwoHanded", e.target.checked); }} />
           <label htmlFor="isTwoHanded" className="text-sm cursor-pointer">Двуручное</label>
         </div>
       </div>
       <div className="space-y-1">
         <label className="text-xs text-muted-foreground">Бонусы характеристик (JSON)</label>
-        <textarea value={form.statBonuses} onChange={(e) => setField("statBonuses", e.target.value)} rows={3}
+        <textarea value={form.statBonuses} onChange={(e) => { setField("statBonuses", e.target.value); }} rows={3}
           className="w-full resize-none rounded border bg-background px-2 py-1.5 text-sm font-mono outline-none focus:ring-2 focus:ring-ring"
           placeholder='{"strength": 2}' />
       </div>
       <div className="space-y-1">
         <label className="text-xs text-muted-foreground">Описание</label>
-        <textarea value={form.description} onChange={(e) => setField("description", e.target.value)} rows={2}
+        <textarea value={form.description} onChange={(e) => { setField("description", e.target.value); }} rows={2}
           className="w-full resize-none rounded border bg-background px-2 py-1.5 text-sm outline-none focus:ring-2 focus:ring-ring" />
       </div>
       {error && <p className="text-xs text-destructive">{error}</p>}
@@ -297,7 +297,7 @@ function ItemRow({ item, onEdit, onCopy }: { item: ItemTemplate; onEdit: () => v
         {item.damageDice ?? "—"}
         {item.isTwoHanded && <span className="ml-1 text-[10px] text-amber-600">2H</span>}
       </td>
-      <td className="px-3 py-2 text-right tabular-nums">{item.referencePrice.toString()}</td>
+      <td className="px-3 py-2 text-right tabular-nums">{item.referencePrice}</td>
       <td className="px-3 py-2">
         <div className="flex justify-end gap-2">
           <button onClick={onEdit} className="text-xs text-muted-foreground hover:text-foreground">Изменить</button>

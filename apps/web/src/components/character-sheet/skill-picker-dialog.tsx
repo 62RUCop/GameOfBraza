@@ -76,7 +76,7 @@ export function SkillPickerDialog({ characterId, slotIndex, existingSkillIds, on
     <div
       ref={backdropRef}
       className="fixed inset-0 z-50 flex items-end justify-center sm:items-center bg-black/40 backdrop-blur-sm p-4"
-      onClick={(e) => { if (e.target === backdropRef.current) onClose(); }}
+      onMouseDown={(e) => { if (e.target === backdropRef.current) onClose(); }}
     >
       <div className="w-full max-w-md rounded-xl border bg-background shadow-xl flex flex-col max-h-[80vh]">
         {/* Header */}

@@ -55,7 +55,7 @@ const SLOT_LAYOUT: Record<string, {
   equipped_pet:          { top: "67%", left: "2%",  width: "27%" },
 };
 
-const SLOT_ORDER = Object.keys(SLOT_LAYOUT) as (keyof typeof SLOT_LAYOUT)[];
+const SLOT_ORDER = Object.keys(SLOT_LAYOUT);
 
 export function TabEquipment({ character, canEdit }: Props) {
   const [pickerSlot, setPickerSlot] = useState<string | null>(null);
@@ -103,7 +103,8 @@ export function TabEquipment({ character, canEdit }: Props) {
 
           {/* Slots */}
           {SLOT_ORDER.map((slotKey) => {
-            const pos = SLOT_LAYOUT[slotKey]!;
+            const pos = SLOT_LAYOUT[slotKey];
+            if (!pos) return null;
             const item = equipped.get(slotKey) ?? null;
             return (
               <div
@@ -121,8 +122,8 @@ export function TabEquipment({ character, canEdit }: Props) {
                   label={SLOT_LABELS[slotKey] ?? slotKey}
                   item={item}
                   canEdit={canEdit && !unequipPending}
-                  onOpen={() => setPickerSlot(slotKey)}
-                  onUnequip={item ? () => handleUnequip(item) : undefined}
+                  onOpen={() => { setPickerSlot(slotKey); }}
+                  onUnequip={item ? () => { handleUnequip(item); } : undefined}
                 />
               </div>
             );
@@ -137,7 +138,7 @@ export function TabEquipment({ character, canEdit }: Props) {
           slot={pickerSlot}
           slotLabel={SLOT_LABELS[pickerSlot] ?? pickerSlot}
           slotType={SLOT_TO_SLOT_TYPE[pickerSlot] ?? pickerSlot.replace("equipped_", "")}
-          onClose={() => setPickerSlot(null)}
+          onClose={() => { setPickerSlot(null); }}
         />
       )}
     </>

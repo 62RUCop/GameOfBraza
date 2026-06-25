@@ -41,7 +41,7 @@ export default async function CharacterPage({ params, searchParams }: Props) {
   if (!character) notFound();
 
   // Ensure every race has a reputation row (virtual value 0 for missing ones)
-  const allRaces = await prisma.race.findMany({ orderBy: { name: "asc" } });
+  const allRaces = await prisma.race.findMany({ where: { deletedAt: null }, orderBy: { name: "asc" } });
   const repByRaceId = new Map(character.reputations.map((r) => [r.raceId, r]));
   const reputations = allRaces.map(
     (race) =>

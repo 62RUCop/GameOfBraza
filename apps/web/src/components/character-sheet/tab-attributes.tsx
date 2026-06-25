@@ -10,8 +10,7 @@ import {
 } from "@gob/rules";
 import type { Role } from "@gob/db";
 import type { FullCharacter } from "./character-sheet";
-import { updateRuntimeValues, allocatePoints, updateDerivedOverride } from "@/actions/characters";
-import { gmSetAttribute } from "@/actions/gm";
+import { updateRuntimeValues, allocatePoints, updateDerivedOverride, setBaseAttribute } from "@/actions/characters";
 
 interface Props {
   character: FullCharacter;
@@ -50,7 +49,7 @@ function pointCost(from: number, to: number): number {
   return cost;
 }
 
-export function TabAttributes({ character, canEdit, viewerRole }: Props) {
+export function TabAttributes({ character, canEdit }: Props) {
   const attrs = character.attributes;
   const [allocMode, setAllocMode] = useState(false);
   const [deltas, setDeltas] = useState<Partial<Record<StatKey, number>>>({});
@@ -200,7 +199,7 @@ export function TabAttributes({ character, canEdit, viewerRole }: Props) {
               canIncrement={displayValue < 255}
               onDecrement={() => { adjustDelta(key, -1); }}
               onIncrement={() => { adjustDelta(key, 1); }}
-              isGmEditable={(viewerRole === "gm" || viewerRole === "admin") && !allocMode}
+              isGmEditable={canEdit && !allocMode}
               characterId={character.id}
               statKey={key}
             />
@@ -360,7 +359,7 @@ function StatCard({
     const v = parseInt(draft, 10);
     if (!isNaN(v) && v >= 0 && v <= 255 && v !== value && characterId && statKey) {
       startTransition(async () => {
-        await gmSetAttribute({ characterId, stat: statKey, value: v });
+        await setBaseAttribute({ characterId, stat: statKey, value: v });
         setEditing(false);
       });
     } else {
@@ -567,7 +566,7 @@ function LiveValueRow({
 
 // ─── Derived value row (read-only) ────────────────────────────────────────────
 
-function DerivedRow({
+function _DerivedRow({
   label,
   suggested,
   override,

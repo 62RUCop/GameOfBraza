@@ -104,7 +104,7 @@ function ReputationRow({
               min={-10}
               max={10}
               value={draft}
-              onChange={(e) => setDraft(e.target.value)}
+              onChange={(e) => { setDraft(e.target.value); }}
               onBlur={commitNumber}
               onKeyDown={(e) => {
                 if (e.key === "Enter") commitNumber();
