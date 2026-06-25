@@ -35,7 +35,7 @@ migrate:
 seed:
 	docker compose run --rm migrate pnpm --filter @gob/db seed
 
-## seed-demo: сид + демо-данные (Михалыч, dev-пользователи)
+## seed-demo: сид + демо-данные (dev-пользователи)
 seed-demo:
 	docker compose run --rm -e SEED_DEMO=true migrate pnpm --filter @gob/db seed
 

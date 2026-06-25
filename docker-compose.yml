@@ -42,7 +42,7 @@ services:
       # Первичный admin (создаётся сидом, если задан пароль). Идемпотентно.
       ADMIN_EMAIL: ${ADMIN_EMAIL:-}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
-      # Демо-данные (персонаж «Михалыч» + dev-пользователи). Для прода — false.
+      # Демо-данные (dev-пользователи; тестовый персонаж будет добавлен позже). Для прода — false.
       SEED_DEMO: ${SEED_DEMO:-false}
 
   # ─── Веб-сервер (Next.js standalone) ──────────────────────────────────────────
@@ -61,10 +61,14 @@ services:
       DATABASE_URL: ${DATABASE_URL:-postgresql://${POSTGRES_USER:-gob_user}:${POSTGRES_PASSWORD:-gob_password}@db:5432/${POSTGRES_DB:-gameofbraza}}
       NODE_ENV: production
       AUTH_SECRET: "${AUTH_SECRET:?AUTH_SECRET is not set — run ./start.sh or: openssl rand -hex 32}"
-      AUTH_URL: ${AUTH_URL:-http://localhost:3000}
+      # Пусто по умолчанию: origin auth-редиректов определяется из Host-заголовка
+      # запроса (см. AUTH_TRUST_HOST ниже). Жёсткий localhost здесь ломал доступ
+      # по IP/домену — вход перебрасывало на localhost. Задавай AUTH_URL только за
+      # прокси, меняющим домен/протокол (напр. https://example.com).
+      AUTH_URL: ${AUTH_URL:-}
       # Self-host за compose/прокси: доверяем заголовкам Host (NextAuth v5).
       AUTH_TRUST_HOST: "true"
-      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-}
     ports:
       - "${WEB_PORT:-3000}:3000"
     healthcheck:

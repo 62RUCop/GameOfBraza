@@ -13,6 +13,12 @@ const credentialsSchema = z.object({
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   adapter: PrismaAdapter(prisma),
+  // Self-host за прокси/по IP: origin для auth-редиректов берём из Host-заголовка
+  // запроса, а не из фиксированного AUTH_URL. Без этого вход с любой машины,
+  // кроме самого сервера, перебрасывает на localhost (явный AUTH_URL «схлопывает»
+  // callbackUrl к своему origin). AUTH_URL имеет смысл задавать только за прокси,
+  // меняющим домен/протокол; пустой — определяем хост автоматически.
+  trustHost: true,
   session: { strategy: "jwt" },
   pages: {
     signIn: "/sign-in",
