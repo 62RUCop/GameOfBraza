@@ -16,6 +16,7 @@
     "seed": "tsx src/seed/index.ts",
     "generate": "prisma generate",
     "studio": "prisma studio",
+    "test": "vitest run",
     "lint": "eslint src"
   },
   "dependencies": {
@@ -32,6 +33,7 @@
     "iconv-lite": "^0.6.3",
     "prisma": "^6.2.1",
     "tsx": "^4.19.2",
-    "typescript": "^5.7.3"
+    "typescript": "^5.7.3",
+    "vitest": "^2.1.8"
   }
 }
