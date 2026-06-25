@@ -156,13 +156,16 @@ make reset       # ⚠️ ПОЛНЫЙ сброс: удалить контейн
 | `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` | параметры БД (из них собирается `DATABASE_URL`) |
 | `DATABASE_URL` | задай вручную только для внешней БД |
 | `AUTH_SECRET` | секрет NextAuth; пусто → сгенерируется `start.sh` |
-| `AUTH_URL` / `NEXT_PUBLIC_APP_URL` | публичный URL приложения |
+| `AUTH_URL` / `NEXT_PUBLIC_APP_URL` | публичный URL; **оставь пустым** для доступа по IP/домену (origin берётся из Host-заголовка) — задавай только за прокси |
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` | первичный admin (создаётся сидом, идемпотентно) |
 | `WEB_PORT` | порт на хосте (по умолчанию `3000`) |
 | `SEED_DEMO` | `true` → демо-данные (dev-пользователи; тестовый персонаж — позже) |
 
-> При смене публичного URL за прокси/доменом задай `AUTH_URL` и `NEXT_PUBLIC_APP_URL`;
-> `AUTH_TRUST_HOST=true` уже выставлен для self-host.
+> По умолчанию `AUTH_URL` пуст и origin auth-редиректов определяется из `Host`-заголовка
+> запроса (`AUTH_TRUST_HOST=true` уже выставлен для self-host) — приложение доступно по IP
+> и домену без настройки. Задавай `AUTH_URL`/`NEXT_PUBLIC_APP_URL` **только** за обратным
+> прокси, который меняет домен/протокол (напр. `https://example.com`). Жёсткий
+> `AUTH_URL=http://localhost:3000` перебрасывает вход на localhost — работает лишь на самом сервере.
 
 > 🛠 **Запускаешь Docker-деплой на dev-машине**, где уже есть свой `.env` (для
 > `pnpm dev`, с `DATABASE_URL` на `localhost`)? Этот `.env` подхватит и compose,

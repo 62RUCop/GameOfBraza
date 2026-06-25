@@ -70,9 +70,17 @@ info "Сборка образов и запуск контейнеров (это
 docker compose up -d --build --wait
 
 # ─── 5. Итог ────────────────────────────────────────────────────────────────────
-URL="$(get_env AUTH_URL)"; URL="${URL:-http://localhost:3000}"
+PORT="$(get_env WEB_PORT)"; PORT="${PORT:-3000}"
+URL="$(get_env AUTH_URL)"
 echo
-ok "Готово! Приложение доступно на ${URL}"
+if [ -n "$URL" ]; then
+  ok "Готово! Приложение доступно на ${URL}"
+else
+  # AUTH_URL пуст — origin определяется из Host-заголовка (AUTH_TRUST_HOST=true),
+  # поэтому работает по любому IP/домену сервера. Точный адрес зависит от того,
+  # как ты заходишь; локально — http://localhost:${PORT}.
+  ok "Готово! Приложение слушает порт ${PORT} — открывай http://<ip-или-домен-сервера>:${PORT}"
+fi
 if [ -n "$GENERATED_ADMIN_PASS" ]; then
   echo
   echo "  Учётка администратора (сохранена в ${ENV_FILE}):"
