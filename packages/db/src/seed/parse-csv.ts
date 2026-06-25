@@ -133,7 +133,10 @@ function parseDescription(desc: string): ParsedDescription {
   const dodgeMatchN = desc.match(/\+?\s*(\d+)\s*к\s*увороту/i) ?? desc.match(/\+?\s*(\d+)\s*уворот/i);
   if (dodgeMatchN?.[1]) {
     bonuses.dodge = parseInt(dodgeMatchN[1]);
-  } else if (/\bуворот\b/i.test(desc)) {
+  } else if (/уворот/i.test(desc)) {
+    // голое «уворот» без числа → подразумевается +1. Не используем \b: в JS
+    // граница слова ASCII-only и на кириллице не срабатывает (числовые формы
+    // уже отработаны веткой dodgeMatchN выше, так что фоллбэк безопасен).
     bonuses.dodge = 1;
   }
 
