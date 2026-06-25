@@ -127,9 +127,10 @@ Auth: Auth.js / NextAuth v5 — Credentials (email+пароль, bcryptjs), JWT-
 
 ## Сиды (состояние)
 
-`pnpm db:seed` (`packages/db/src/seed/index.ts`) сейчас прогоняет: `rule-config`, расы, группы, типажи НПС, dev-users.
+`pnpm db:seed` (`packages/db/src/seed/index.ts`) сейчас прогоняет: `rule-config`, расы, группы, типажи НПС, **каталог предметов из `Gob_markets.csv`** (`item-templates.ts` → `parse-csv.ts`), первичный admin из ENV, dev-users.
+Парсинг CSV: файл лежит в `packages/db/seed/data/Gob_markets.csv` в кодировке **Windows-1251** (декодируется через `iconv-lite`); путь резолвится относительно модуля, поэтому работает и в Docker-миграторе. Категории → поля задаёт `CATEGORY_CONFIG` в `parse-csv.ts`; натуральный ключ upsert — `name` («Категория Тир N»). Сид идемпотентен и не каскадит на персонажей.
 Dev-пользователи (не в production): `admin@gob.local` / `gm@gob.local` / `player@gob.local`.
-Скрипты для предметов из `Gob_markets.csv` (`parse-csv.ts`, `csv-mapping.ts`), скиллов и тестового персонажа (`character-mikhalych.ts`) уже есть, но **в дефолтный сид пока не подключены** — подключай явно, когда нужно.
+Сид скиллов и тестового персонажа пока не реализованы (старый `character-mikhalych.ts` удалён как недостаточный — будет переписан). Флаг `SEED_DEMO=true` сейчас лишь досевает dev-пользователей.
 
 ---
 
