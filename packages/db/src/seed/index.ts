@@ -6,6 +6,7 @@ import { seedNpcArchetypes } from "./npc-archetypes-defaults.js";
 import { seedInitialAdmin } from "./initial-admin.js";
 import { seedDevUsers } from "./users-dev.js";
 import { seedItemTemplates } from "./item-templates.js";
+import { seedDemoCharacter } from "./character-demo.js";
 
 const prisma = new PrismaClient();
 
@@ -23,12 +24,12 @@ async function main() {
   // Dev-пользователи — только вне production.
   await seedDevUsers(prisma);
 
-  // Демо-данные (SEED_DEMO=true). Демо-персонаж временно убран (старый «Михалыч»
-  // удалён как недостаточный); пока флаг лишь досевает dev-пользователей,
-  // чтобы у будущего тестового персонажа был владелец-аккаунт.
+  // Демо-данные (SEED_DEMO=true): дев-пользователи + готовый тестовый персонаж
+  // для быстрой проверки UI. Идемпотентно (guard по имени + ownerId).
   if (process.env["SEED_DEMO"] === "true") {
-    console.log("[seed] SEED_DEMO=true → демо-данные (dev-пользователи)");
+    console.log("[seed] SEED_DEMO=true → демо-данные (dev-пользователи + демо-персонаж)");
     await seedDevUsers(prisma, { force: true });
+    await seedDemoCharacter(prisma);
   }
 
   console.log("[seed] Done.");
