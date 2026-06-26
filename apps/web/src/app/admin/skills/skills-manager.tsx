@@ -1,22 +1,12 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import type { Skill, SkillType, StatAttribute } from "@gob/db";
+import type { Skill, SkillType } from "@gob/db";
 import { cn } from "@gob/ui";
 import { upsertSkill, softDeleteSkill, restoreSkill } from "@/actions/admin";
 
 const SKILL_TYPES: SkillType[] = ["innate", "acquired"];
 const SKILL_TYPE_LABELS: Record<SkillType, string> = { innate: "Врождённый", acquired: "Приобретённый" };
-const STAT_ATTRIBUTES: (StatAttribute | "")[] = ["", "strength", "dexterity", "intelligence", "spirit", "endurance", "luck"];
-const STAT_LABELS: Record<string, string> = {
-  "": "—",
-  strength: "СИЛ",
-  dexterity: "ЛОВ",
-  intelligence: "ИНТ",
-  spirit: "ДУХ",
-  endurance: "ВЫН",
-  luck: "УДА",
-};
 
 interface SkillFormData {
   name: string;
@@ -25,9 +15,9 @@ interface SkillFormData {
   occupiesSlot: boolean;
   tier: number;
   guildId: string;
-  tiedAttribute: StatAttribute | "";
   manaCost: string;
   apCost: string;
+  authorName: string;
 }
 
 const EMPTY_FORM: SkillFormData = {
@@ -37,9 +27,9 @@ const EMPTY_FORM: SkillFormData = {
   occupiesSlot: true,
   tier: 1,
   guildId: "",
-  tiedAttribute: "",
   manaCost: "",
   apCost: "",
+  authorName: "",
 };
 
 function skillToForm(s: Skill): SkillFormData {
@@ -50,9 +40,9 @@ function skillToForm(s: Skill): SkillFormData {
     occupiesSlot: s.occupiesSlot,
     tier: s.tier,
     guildId: s.guildId ?? "",
-    tiedAttribute: s.tiedAttribute ?? "",
     manaCost: s.manaCost?.toString() ?? "",
     apCost: s.apCost?.toString() ?? "",
+    authorName: s.authorName ?? "",
   };
 }
 
@@ -92,6 +82,7 @@ export function SkillsManager({ skills }: { skills: Skill[] }) {
               <th className="px-3 py-2 text-center font-medium text-muted-foreground">Тир</th>
               <th className="px-3 py-2 text-center font-medium text-muted-foreground">Ячейка</th>
               <th className="px-3 py-2 text-center font-medium text-muted-foreground">Мана/ОД</th>
+              <th className="px-3 py-2 text-left font-medium text-muted-foreground">Автор</th>
               <th className="px-3 py-2"></th>
             </tr>
           </thead>
@@ -153,6 +144,7 @@ function SkillForm({
       const trimmedGuild = form.guildId.trim();
       const manaCostVal = form.manaCost ? parseInt(form.manaCost, 10) : undefined;
       const apCostVal = form.apCost ? parseInt(form.apCost, 10) : undefined;
+      const trimmedAuthor = form.authorName.trim();
       const result = await upsertSkill({
         ...(editingId ? { id: editingId } : {}),
         name: form.name.trim(),
@@ -161,9 +153,9 @@ function SkillForm({
         occupiesSlot: form.occupiesSlot,
         tier: form.tier,
         ...(trimmedGuild ? { guildId: trimmedGuild } : {}),
-        ...(form.tiedAttribute ? { tiedAttribute: form.tiedAttribute } : {}),
         ...(manaCostVal !== undefined ? { manaCost: manaCostVal } : {}),
         ...(apCostVal !== undefined ? { apCost: apCostVal } : {}),
+        ...(trimmedAuthor ? { authorName: trimmedAuthor } : {}),
       });
       if ("error" in result) { setError(result.error); } else { onSaved(); }
     });
@@ -191,13 +183,6 @@ function SkillForm({
             className="w-full rounded border bg-background px-2 py-1.5 text-sm outline-none focus:ring-2 focus:ring-ring" />
         </div>
         <div className="space-y-1">
-          <label className="text-xs text-muted-foreground">Привязка к характеристике</label>
-          <select value={form.tiedAttribute} onChange={(e) => { setField("tiedAttribute", e.target.value as StatAttribute | ""); }}
-            className="w-full rounded border bg-background px-2 py-1.5 text-sm outline-none">
-            {STAT_ATTRIBUTES.map((a) => <option key={a} value={a}>{STAT_LABELS[a]}</option>)}
-          </select>
-        </div>
-        <div className="space-y-1">
           <label className="text-xs text-muted-foreground">Стоимость маны</label>
           <input type="number" min={0} value={form.manaCost} onChange={(e) => { setField("manaCost", e.target.value); }}
             className="w-full rounded border bg-background px-2 py-1.5 text-sm outline-none focus:ring-2 focus:ring-ring" placeholder="—" />
@@ -210,6 +195,11 @@ function SkillForm({
         <div className="space-y-1">
           <label className="text-xs text-muted-foreground">Гильдия (ID)</label>
           <input value={form.guildId} onChange={(e) => { setField("guildId", e.target.value); }}
+            className="w-full rounded border bg-background px-2 py-1.5 text-sm outline-none focus:ring-2 focus:ring-ring" placeholder="—" />
+        </div>
+        <div className="space-y-1">
+          <label className="text-xs text-muted-foreground">Автор</label>
+          <input value={form.authorName} onChange={(e) => { setField("authorName", e.target.value); }}
             className="w-full rounded border bg-background px-2 py-1.5 text-sm outline-none focus:ring-2 focus:ring-ring" placeholder="—" />
         </div>
         <div className="flex items-center gap-2 pt-5">
@@ -257,6 +247,7 @@ function SkillRow({ skill, onEdit }: { skill: Skill; onEdit: () => void }) {
       <td className="px-3 py-2 text-center text-muted-foreground">
         {skill.manaCost ?? "—"}/{skill.apCost ?? "—"}
       </td>
+      <td className="px-3 py-2 text-muted-foreground text-sm">{skill.authorName ?? "—"}</td>
       <td className="px-3 py-2">
         <div className="flex justify-end gap-2">
           <button onClick={onEdit} className="text-xs text-muted-foreground hover:text-foreground">Изменить</button>

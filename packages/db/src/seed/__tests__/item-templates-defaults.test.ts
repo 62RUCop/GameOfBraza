@@ -51,10 +51,6 @@ describe("спот-чеки значений (сохранены при пере
     expect(byName("Сила Двуручный Тир 1")?.scalingCoefficient).toBe("1");
   });
 
-  it("ловкие одноручники несут бонус уворота +1", () => {
-    expect(byName("Ловкость Одноручный Тир 1")?.statBonuses).toEqual({ dodge: 1 });
-  });
-
   it("урон и крит-кубик у двуручника силы тир 4", () => {
     const item = byName("Сила Двуручный Тир 4");
     expect(item?.damageDice).toBe("4D8");

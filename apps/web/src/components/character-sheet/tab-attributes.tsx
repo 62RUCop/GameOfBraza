@@ -6,8 +6,8 @@ import {
   computeDerived,
   attributePowerTier,
   classIndex,
-  DEFAULT_RULE_CONFIG,
 } from "@gob/rules";
+import type { RuleConfig } from "@gob/rules";
 import type { Role } from "@gob/db";
 import type { FullCharacter } from "./character-sheet";
 import { updateRuntimeValues, allocatePoints, updateDerivedOverride, setBaseAttribute } from "@/actions/characters";
@@ -16,6 +16,7 @@ interface Props {
   character: FullCharacter;
   canEdit: boolean;
   viewerRole: Role;
+  ruleConfig: RuleConfig;
 }
 
 const STAT_KEYS = ["strength", "dexterity", "intelligence", "spirit", "endurance", "luck"] as const;
@@ -49,7 +50,7 @@ function pointCost(from: number, to: number): number {
   return cost;
 }
 
-export function TabAttributes({ character, canEdit }: Props) {
+export function TabAttributes({ character, canEdit, ruleConfig }: Props) {
   const attrs = character.attributes;
   const [allocMode, setAllocMode] = useState(false);
   const [deltas, setDeltas] = useState<Partial<Record<StatKey, number>>>({});
@@ -71,8 +72,8 @@ export function TabAttributes({ character, canEdit }: Props) {
   };
 
   const rt = character.runtimeState;
-  const derived = computeDerived(stats, { hp: 0 }, DEFAULT_RULE_CONFIG);
-  const cfg = DEFAULT_RULE_CONFIG;
+  const derived = computeDerived(stats, { hp: 0 }, ruleConfig);
+  const cfg = ruleConfig;
 
   const totalCost = STAT_KEYS.reduce((sum, k) => {
     const d = deltas[k] ?? 0;
@@ -258,6 +259,7 @@ export function TabAttributes({ character, canEdit }: Props) {
             suggested={derived.hpMax}
             override={rt?.hpMaxOverride ?? null}
             isManual={rt?.hpMaxManualOverride ?? false}
+            overrideAuthor={rt?.hpMaxOverrideAuthor ?? null}
             characterId={character.id}
             field="hpMax"
             canEdit={canEdit}
@@ -267,6 +269,7 @@ export function TabAttributes({ character, canEdit }: Props) {
             suggested={derived.manaMax}
             override={rt?.manaMaxOverride ?? null}
             isManual={rt?.manaMaxManualOverride ?? false}
+            overrideAuthor={rt?.manaMaxOverrideAuthor ?? null}
             characterId={character.id}
             field="manaMax"
             canEdit={canEdit}
@@ -276,6 +279,7 @@ export function TabAttributes({ character, canEdit }: Props) {
             suggested={derived.apMax}
             override={rt?.apMaxOverride ?? null}
             isManual={rt?.apMaxManualOverride ?? false}
+            overrideAuthor={rt?.apMaxOverrideAuthor ?? null}
             characterId={character.id}
             field="apMax"
             canEdit={canEdit}
@@ -294,6 +298,7 @@ export function TabAttributes({ character, canEdit }: Props) {
             suggested={derived.critBonus}
             override={rt?.critBonusOverride ?? null}
             isManual={rt?.critBonusManualOverride ?? false}
+            overrideAuthor={rt?.critBonusOverrideAuthor ?? null}
             characterId={character.id}
             field="critBonus"
             canEdit={canEdit}
@@ -571,14 +576,17 @@ function _DerivedRow({
   suggested,
   override,
   isManual,
+  overrideAuthor,
 }: {
   label: string;
   suggested: number;
   override: number | null;
   isManual: boolean;
+  overrideAuthor?: string | null;
 }) {
   const displayValue = isManual && override !== null ? override : suggested;
   const outOfRange = displayValue !== suggested;
+  const isConfigPinned = isManual && overrideAuthor === "__config__";
 
   return (
     <div
@@ -590,9 +598,15 @@ function _DerivedRow({
       <div className="flex items-center gap-2">
         <span className="text-sm">{label}</span>
         {isManual && (
-          <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground" title="Закреплено вручную">
-            ручн.
-          </span>
+          isConfigPinned ? (
+            <span className="rounded bg-blue-100 px-1.5 py-0.5 text-[10px] text-blue-600 dark:bg-blue-950 dark:text-blue-400" title="Закреплено из-за изменения настроек правил">
+              конф.
+            </span>
+          ) : (
+            <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground" title="Закреплено вручную">
+              ручн.
+            </span>
+          )
         )}
       </div>
       <div className="flex items-baseline gap-2 tabular-nums">
@@ -610,6 +624,7 @@ function EditableDerivedRow({
   suggested,
   override,
   isManual,
+  overrideAuthor,
   characterId,
   field,
   canEdit,
@@ -618,12 +633,14 @@ function EditableDerivedRow({
   suggested: number;
   override: number | null;
   isManual: boolean;
+  overrideAuthor?: string | null;
   characterId: string;
   field: "hpMax" | "manaMax" | "apMax" | "slots" | "critBonus";
   canEdit: boolean;
 }) {
   const displayValue = isManual && override !== null ? override : suggested;
   const outOfRange = displayValue !== suggested;
+  const isConfigPinned = isManual && overrideAuthor === "__config__";
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(String(displayValue));
   const [isPending, startTransition] = useTransition();
@@ -658,9 +675,15 @@ function EditableDerivedRow({
       <div className="flex items-center gap-2 min-w-0">
         <span className="text-sm truncate">{label}</span>
         {isManual && (
-          <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground shrink-0" title="Закреплено вручную">
-            ручн.
-          </span>
+          isConfigPinned ? (
+            <span className="rounded bg-blue-100 px-1.5 py-0.5 text-[10px] text-blue-600 dark:bg-blue-950 dark:text-blue-400 shrink-0" title="Закреплено из-за изменения настроек правил">
+              конф.
+            </span>
+          ) : (
+            <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground shrink-0" title="Закреплено вручную">
+              ручн.
+            </span>
+          )
         )}
       </div>
       <div className="flex items-baseline gap-2 tabular-nums shrink-0">
@@ -694,7 +717,7 @@ function EditableDerivedRow({
             onClick={reset}
             disabled={isPending}
             className="ml-1 text-[10px] text-muted-foreground hover:text-destructive"
-            title="Сбросить override"
+            title={isConfigPinned ? "Снять закрепление конфига" : "Сбросить override"}
           >
             ×
           </button>

@@ -35,7 +35,6 @@ export async function GET(req: NextRequest) {
       weaponFamily: true,
       damageDice: true,
       bonusCritDice: true,
-      statBonuses: true,
       description: true,
     },
   });

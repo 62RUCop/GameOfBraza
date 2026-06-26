@@ -4,7 +4,8 @@ import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import type { Prisma } from "@gob/db";
 import { prisma } from "@gob/db";
-import { computeDerived, DEFAULT_RULE_CONFIG } from "@gob/rules";
+import { computeDerived } from "@gob/rules";
+import { loadRuleConfig } from "@/lib/rule-config";
 
 export async function deleteCharacter(characterId: string) {
   const session = await auth();
@@ -138,11 +139,14 @@ export async function allocatePoints(input: {
   const newAttrs = { ...Object.fromEntries(STAT_KEYS.map((k) => [k, attrs[k]])), ...newValues } as Record<StatKey, number>;
 
   // Recompute derived for non-overridden values
-  const rt = await prisma.runtimeState.findUnique({ where: { characterId: input.characterId } });
+  const [rt, ruleConfig] = await Promise.all([
+    prisma.runtimeState.findUnique({ where: { characterId: input.characterId } }),
+    loadRuleConfig(),
+  ]);
   const derived = computeDerived(
     { str: newAttrs.strength, dex: newAttrs.dexterity, int: newAttrs.intelligence, spi: newAttrs.spirit, end: newAttrs.endurance, luc: newAttrs.luck },
     { hp: 0 },
-    DEFAULT_RULE_CONFIG,
+    ruleConfig,
   );
 
   await prisma.$transaction([
@@ -217,13 +221,12 @@ export async function setBaseAttribute(input: {
     [input.stat]: input.value,
   };
 
+  const [ruleConfig, rt] = await Promise.all([loadRuleConfig(), Promise.resolve(character.runtimeState)]);
   const derived = computeDerived(
     { str: newAttrs.strength, dex: newAttrs.dexterity, int: newAttrs.intelligence, spi: newAttrs.spirit, end: newAttrs.endurance, luc: newAttrs.luck },
     { hp: 0 },
-    DEFAULT_RULE_CONFIG,
+    ruleConfig,
   );
-
-  const rt = character.runtimeState;
 
   await prisma.$transaction([
     prisma.characterAttributes.update({
@@ -291,7 +294,9 @@ export async function updateRuntimeValues(input: {
 
 export async function updatePlayerNotes(input: {
   characterId: string;
-  notes: string;
+  notes?: string;
+  buffs?: string;
+  debuffs?: string;
 }) {
   const session = await auth();
   if (!session) return { error: "Не авторизован" };
@@ -305,9 +310,14 @@ export async function updatePlayerNotes(input: {
   const isGmOrAdmin = session.user.role === "gm" || session.user.role === "admin";
   if (!isOwner && !isGmOrAdmin) return { error: "Нет прав" };
 
+  const data: Record<string, string | null | undefined> = {};
+  if (input.notes !== undefined) data.playerNotes = input.notes;
+  if (input.buffs !== undefined) data.buffs = input.buffs;
+  if (input.debuffs !== undefined) data.debuffs = input.debuffs;
+
   await prisma.character.update({
     where: { id: input.characterId },
-    data: { playerNotes: input.notes },
+    data,
   });
 
   revalidatePath(`/characters/${input.characterId}`);
@@ -463,6 +473,7 @@ export async function updateCharacterInfo(input: {
   questProgressStage?: number;
   quenta?: string | null;
   mainQuest?: string | null;
+  appearanceImage?: string | null;
 }) {
   const session = await auth();
   if (!session) return { error: "Не авторизован" };
@@ -738,6 +749,88 @@ export async function addCharacterSkill(input: {
   } catch {
     return { error: "Скилл уже добавлен" };
   }
+
+  revalidatePath(`/characters/${input.characterId}`);
+  return { ok: true };
+}
+
+export async function createSkillAndAdd(input: {
+  characterId: string;
+  name: string;
+  description?: string;
+  skillType: string;
+  occupiesSlot: boolean;
+  tier: number;
+  guildId?: string;
+  manaCost?: number;
+  apCost?: number;
+  authorName?: string;
+}) {
+  const session = await auth();
+  if (!session) return { error: "Не авторизован" };
+  const check = await assertCanEditCharacter(input.characterId);
+  if ("error" in check) return check;
+
+  if (!input.name.trim()) return { error: "Введите название" };
+
+  const skill = await prisma.skill.create({
+    data: {
+      name: input.name.trim(),
+      description: input.description?.trim() || null,
+      skillType: input.skillType as never,
+      occupiesSlot: input.occupiesSlot,
+      tier: input.tier,
+      guildId: input.guildId?.trim() || null,
+      manaCost: input.manaCost ?? null,
+      apCost: input.apCost ?? null,
+      authorName: input.authorName?.trim() || session.user.name || session.user.email,
+    },
+  });
+
+  await prisma.characterSkill.create({
+    data: { characterId: input.characterId, skillId: skill.id },
+  });
+
+  revalidatePath(`/characters/${input.characterId}`);
+  return { ok: true };
+}
+
+export async function updateSkillByPlayer(input: {
+  characterId: string;
+  skillId: string;
+  name: string;
+  description?: string;
+  skillType: string;
+  occupiesSlot: boolean;
+  tier: number;
+  guildId?: string;
+  manaCost?: number;
+  apCost?: number;
+  authorName?: string;
+}) {
+  const session = await auth();
+  if (!session) return { error: "Не авторизован" };
+  const check = await assertCanEditCharacter(input.characterId);
+  if ("error" in check) return check;
+
+  if (!input.name.trim()) return { error: "Введите название" };
+
+  const existing = await prisma.skill.findUnique({ where: { id: input.skillId }, select: { authorName: true } });
+
+  await prisma.skill.update({
+    where: { id: input.skillId },
+    data: {
+      name: input.name.trim(),
+      description: input.description?.trim() || null,
+      skillType: input.skillType as never,
+      occupiesSlot: input.occupiesSlot,
+      tier: input.tier,
+      guildId: input.guildId?.trim() || null,
+      manaCost: input.manaCost ?? null,
+      apCost: input.apCost ?? null,
+      authorName: input.authorName?.trim() || existing?.authorName || session.user.name || session.user.email,
+    },
+  });
 
   revalidatePath(`/characters/${input.characterId}`);
   return { ok: true };

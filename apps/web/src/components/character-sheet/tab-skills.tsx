@@ -16,7 +16,9 @@ interface Props {
 
 export function TabSkills({ character, canEdit }: Props) {
   const [pickerSlot, setPickerSlot] = useState<number | null>(null);
+  const [editingSkill, setEditingSkill] = useState<FullCharacterSkill | null>(null);
   const [innatePickerOpen, setInnatePickerOpen] = useState(false);
+  const [editingInnate, setEditingInnate] = useState(false);
   const [spread, setSpread] = useState(0);
   const [removePending, startRemove] = useTransition();
   const [usePending, startUse] = useTransition();
@@ -109,6 +111,7 @@ export function TabSkills({ character, canEdit }: Props) {
                   usePending={usePending}
                   onOpen={() => { setPickerSlot(spreadStart + i); }}
                   onRemove={cs ? () => { handleRemove(cs); } : undefined}
+                  onEdit={cs ? () => { setEditingSkill(cs); } : undefined}
                   onUse={handleUse}
                 />
               ))}
@@ -137,6 +140,7 @@ export function TabSkills({ character, canEdit }: Props) {
                   usePending={usePending}
                   onOpen={() => { setPickerSlot(spreadStart + 3 + i); }}
                   onRemove={cs ? () => { handleRemove(cs); } : undefined}
+                  onEdit={cs ? () => { setEditingSkill(cs); } : undefined}
                   onUse={handleUse}
                 />
               ))}
@@ -204,6 +208,7 @@ export function TabSkills({ character, canEdit }: Props) {
           usePending={usePending}
           onOpen={() => { setInnatePickerOpen(true); }}
           onRemove={innateSkill ? () => { handleRemove(innateSkill); } : undefined}
+          onEdit={innateSkill ? () => { setEditingInnate(true); } : undefined}
           onUse={handleUse}
         />
       </div>
@@ -215,6 +220,7 @@ export function TabSkills({ character, canEdit }: Props) {
           slotIndex={pickerSlot}
           currentSkillId={slots[pickerSlot]?.skillId ?? null}
           existingSkillIds={allSkillIds}
+          filterType="acquired"
           onClose={() => { setPickerSlot(null); }}
         />
       )}
@@ -226,6 +232,30 @@ export function TabSkills({ character, canEdit }: Props) {
           existingSkillIds={allSkillIds}
           filterType="innate"
           onClose={() => { setInnatePickerOpen(false); }}
+        />
+      )}
+      {/* Диалог редактирования скилла из книги */}
+      {editingSkill && (
+        <SkillPickerDialog
+          characterId={character.id}
+          slotIndex={0}
+          currentSkillId={editingSkill.skillId}
+          existingSkillIds={allSkillIds}
+          filterType="acquired"
+          editingSkill={editingSkill.skill}
+          onClose={() => { setEditingSkill(null); }}
+        />
+      )}
+      {/* Диалог редактирования врождённого скилла */}
+      {editingInnate && innateSkill && (
+        <SkillPickerDialog
+          characterId={character.id}
+          slotIndex={0}
+          currentSkillId={innateSkill.skillId}
+          existingSkillIds={allSkillIds}
+          filterType="innate"
+          editingSkill={innateSkill.skill}
+          onClose={() => { setEditingInnate(false); }}
         />
       )}
     </div>
@@ -242,6 +272,7 @@ function SkillBookSlot({
   usePending,
   onOpen,
   onRemove,
+  onEdit,
   onUse,
 }: {
   slotIndex: number;
@@ -251,6 +282,7 @@ function SkillBookSlot({
   usePending: boolean;
   onOpen: () => void;
   onRemove?: (() => void) | undefined;
+  onEdit?: (() => void) | undefined;
   onUse: (manaCost: number, apCost: number) => void;
 }) {
   const skill = cs?.skill ?? null;
@@ -292,7 +324,7 @@ function SkillBookSlot({
         <div className="flex-1 min-w-0">
           {skill ? (
             <>
-              {/* Заголовок + удалить */}
+              {/* Заголовок + кнопки */}
               <div className="flex items-start justify-between gap-1">
                 <p
                   className={cn(
@@ -303,15 +335,29 @@ function SkillBookSlot({
                 >
                   {skill.name}
                 </p>
-                {canEdit && onRemove && (
-                  <button
-                    type="button"
-                    onClick={(e) => { e.stopPropagation(); onRemove(); }}
-                    title="Убрать скилл"
-                    className="shrink-0 text-zinc-400/60 hover:text-red-600 dark:hover:text-red-400 transition-colors text-xs leading-none mt-0.5"
-                  >
-                    ✕
-                  </button>
+                {canEdit && (
+                  <div className="flex items-center gap-1 shrink-0 mt-0.5">
+                    {onEdit && (
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); onEdit(); }}
+                        title="Редактировать скилл"
+                        className="text-zinc-400/60 hover:text-blue-500 dark:hover:text-blue-400 transition-colors text-xs leading-none"
+                      >
+                        ✎
+                      </button>
+                    )}
+                    {onRemove && (
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); onRemove(); }}
+                        title="Убрать скилл"
+                        className="text-zinc-400/60 hover:text-red-600 dark:hover:text-red-400 transition-colors text-xs leading-none"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
                 )}
               </div>
 
@@ -320,6 +366,7 @@ function SkillBookSlot({
                 {skill.manaCost != null && <span>💧 {skill.manaCost}</span>}
                 {skill.apCost != null && <span>⚡ {skill.apCost} ОД</span>}
                 {blocked && <span className="text-amber-700 dark:text-amber-500">🔒 тир {skill.tier}</span>}
+                {skill.authorName && <span className="text-zinc-400/70 dark:text-zinc-500/70">✍ {skill.authorName}</span>}
               </div>
 
               {/* Описание */}
@@ -379,6 +426,7 @@ function InnateSlot({
   usePending,
   onOpen,
   onRemove,
+  onEdit,
   onUse,
 }: {
   cs: FullCharacterSkill | null;
@@ -387,6 +435,7 @@ function InnateSlot({
   usePending: boolean;
   onOpen: () => void;
   onRemove?: (() => void) | undefined;
+  onEdit?: (() => void) | undefined;
   onUse: (manaCost: number, apCost: number) => void;
 }) {
   const skill = cs?.skill ?? null;
@@ -430,21 +479,36 @@ function InnateSlot({
                 <p className={cn("text-sm font-semibold leading-tight", blocked && "opacity-50 italic")}>
                   {skill.name}
                 </p>
-                {canEdit && onRemove && (
-                  <button
-                    type="button"
-                    onClick={(e) => { e.stopPropagation(); onRemove(); }}
-                    title="Убрать способность"
-                    className="shrink-0 text-muted-foreground/40 hover:text-destructive transition-colors text-xs leading-none mt-0.5"
-                  >
-                    ✕
-                  </button>
+                {canEdit && (
+                  <div className="flex items-center gap-1 shrink-0 mt-0.5">
+                    {onEdit && (
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); onEdit(); }}
+                        title="Редактировать способность"
+                        className="text-muted-foreground/40 hover:text-blue-500 transition-colors text-xs leading-none"
+                      >
+                        ✎
+                      </button>
+                    )}
+                    {onRemove && (
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); onRemove(); }}
+                        title="Убрать способность"
+                        className="text-muted-foreground/40 hover:text-destructive transition-colors text-xs leading-none"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
                 )}
               </div>
               <div className="flex flex-wrap items-center gap-x-2 mt-0.5 text-[10px] text-muted-foreground">
                 {skill.manaCost != null && <span>💧 {skill.manaCost}</span>}
                 {skill.apCost != null && <span>⚡ {skill.apCost} ОД</span>}
                 {blocked && <span className="text-amber-600">🔒 тир {skill.tier}</span>}
+                {skill.authorName && <span className="text-muted-foreground/60">✍ {skill.authorName}</span>}
               </div>
               {skill.description && (
                 <p className="mt-1 text-[10px] leading-tight text-muted-foreground/70 line-clamp-2">

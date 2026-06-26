@@ -33,7 +33,6 @@ interface FormData {
   bonusCritDice: string;
   scalingAttribute: StatAttribute | "";
   scalingCoefficient: string;
-  statBonuses: string;
   hungerRestored: string;
   referencePrice: string;
   description: string;
@@ -42,7 +41,7 @@ interface FormData {
 const EMPTY_FORM: FormData = {
   name: "", slotType: "weapon_right", tier: 1, weaponFamily: "",
   isTwoHanded: false, requiredAttribute: "", damageDice: "", bonusCritDice: "",
-  scalingAttribute: "", scalingCoefficient: "", statBonuses: "",
+  scalingAttribute: "", scalingCoefficient: "",
   hungerRestored: "", referencePrice: "0", description: "",
 };
 
@@ -58,7 +57,6 @@ function templateToForm(t: ItemTemplate): FormData {
     bonusCritDice: t.bonusCritDice ?? "",
     scalingAttribute: t.scalingAttribute ?? "",
     scalingCoefficient: t.scalingCoefficient?.toString() ?? "",
-    statBonuses: t.statBonuses ? JSON.stringify(t.statBonuses, null, 2) : "",
     hungerRestored: t.hungerRestored?.toString() ?? "",
     referencePrice: t.referencePrice,
     description: t.description ?? "",
@@ -153,11 +151,6 @@ function ItemForm({
 
   function submit() {
     if (!form.name.trim()) { setError("Введите название"); return; }
-    let statBonusesParsed: unknown = undefined;
-    if (form.statBonuses.trim()) {
-      try { statBonusesParsed = JSON.parse(form.statBonuses); }
-      catch { setError("Некорректный JSON в поле «Бонусы характеристик»"); return; }
-    }
     setError(null);
     startTransition(async () => {
       const result = await upsertItemTemplate({
@@ -173,7 +166,6 @@ function ItemForm({
         ...(form.bonusCritDice.trim() ? { bonusCritDice: form.bonusCritDice.trim() } : {}),
         ...(form.scalingAttribute ? { scalingAttribute: form.scalingAttribute } : {}),
         ...(form.scalingCoefficient ? { scalingCoefficient: parseFloat(form.scalingCoefficient) } : {}),
-        ...(statBonusesParsed !== undefined ? { statBonuses: statBonusesParsed } : {}),
         ...(form.hungerRestored ? { hungerRestored: parseInt(form.hungerRestored, 10) } : {}),
         ...(form.description.trim() ? { description: form.description.trim() } : {}),
       });
@@ -250,12 +242,6 @@ function ItemForm({
           <input type="checkbox" id="isTwoHanded" checked={form.isTwoHanded} onChange={(e) => { setField("isTwoHanded", e.target.checked); }} />
           <label htmlFor="isTwoHanded" className="text-sm cursor-pointer">Двуручное</label>
         </div>
-      </div>
-      <div className="space-y-1">
-        <label className="text-xs text-muted-foreground">Бонусы характеристик (JSON)</label>
-        <textarea value={form.statBonuses} onChange={(e) => { setField("statBonuses", e.target.value); }} rows={3}
-          className="w-full resize-none rounded border bg-background px-2 py-1.5 text-sm font-mono outline-none focus:ring-2 focus:ring-ring"
-          placeholder='{"strength": 2}' />
       </div>
       <div className="space-y-1">
         <label className="text-xs text-muted-foreground">Описание</label>

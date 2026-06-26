@@ -46,10 +46,10 @@ const ACTIVE_EFFECTS = [
 
 // ─── Скиллы (общий каталог, изучённые персонажем) ─────────────────────────────
 const ACQUIRED_SKILLS = [
-  { name: "Мощный удар", description: "Усиленная атака в ближнем бою.", skillType: "acquired" as const, tier: 1, occupiesSlot: true, tiedAttribute: "strength" as const, apCost: 10 },
-  { name: "Боевой клич", description: "Воодушевляет союзников рядом.", skillType: "acquired" as const, tier: 1, occupiesSlot: true, apCost: 15 },
-  { name: "Стойкость", description: "Снижает получаемый урон, пока активна.", skillType: "acquired" as const, tier: 2, occupiesSlot: true, tiedAttribute: "endurance" as const },
-  { name: "Малое исцеление", description: "Восстанавливает немного HP союзнику.", skillType: "acquired" as const, tier: 1, occupiesSlot: true, tiedAttribute: "spirit" as const, manaCost: 20 },
+  { name: "Мощный удар", description: "Усиленная атака в ближнем бою.", skillType: "acquired" as const, tier: 1, occupiesSlot: true, apCost: 10, authorName: "Demo" },
+  { name: "Боевой клич", description: "Воодушевляет союзников рядом.", skillType: "acquired" as const, tier: 1, occupiesSlot: true, apCost: 15, authorName: "Demo" },
+  { name: "Стойкость", description: "Снижает получаемый урон, пока активна.", skillType: "acquired" as const, tier: 2, occupiesSlot: true, authorName: "Demo" },
+  { name: "Малое исцеление", description: "Восстанавливает немного HP союзнику.", skillType: "acquired" as const, tier: 1, occupiesSlot: true, manaCost: 20, authorName: "Demo" },
 ];
 
 // Способность питомца — отдельный скилл, на слот персонажа не влияет.
@@ -59,7 +59,7 @@ const PET_SKILL = {
   skillType: "innate" as const,
   tier: 1,
   occupiesSlot: false,
-  tiedAttribute: "dexterity" as const,
+  authorName: "Demo",
 };
 
 // ─── Репутация по фракциям (−10..+10) ─────────────────────────────────────────

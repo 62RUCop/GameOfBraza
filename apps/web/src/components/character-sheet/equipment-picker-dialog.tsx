@@ -12,7 +12,6 @@ interface ItemTemplateSummary {
   weaponFamily: string | null;
   damageDice: string | null;
   bonusCritDice: string | null;
-  statBonuses: Record<string, number> | null;
   description: string | null;
 }
 
@@ -22,7 +21,6 @@ interface ModifyForm {
   weaponFamily: string;
   damageDice: string;
   bonusCritDice: string;
-  statBonuses: string;
   description: string;
 }
 
@@ -90,7 +88,6 @@ export function EquipmentPickerDialog({ characterId, slot, slotLabel, slotType, 
         weaponFamily: t.weaponFamily ?? "",
         damageDice: t.damageDice ?? "",
         bonusCritDice: t.bonusCritDice ?? "",
-        statBonuses: t.statBonuses ? JSON.stringify(t.statBonuses, null, 2) : "",
         description: t.description ?? "",
       },
     });
@@ -100,12 +97,6 @@ export function EquipmentPickerDialog({ characterId, slot, slotLabel, slotType, 
     if (!modifying) return;
     const { template, form } = modifying;
 
-    let statBonusesParsed: Record<string, number> | undefined;
-    if (form.statBonuses.trim()) {
-      try { statBonusesParsed = JSON.parse(form.statBonuses) as Record<string, number>; }
-      catch { return; }
-    }
-
     const overrides: Record<string, unknown> = {};
     if (form.name.trim() !== template.name) overrides.name = form.name.trim();
     const tierNum = parseInt(form.tier, 10);
@@ -113,7 +104,6 @@ export function EquipmentPickerDialog({ characterId, slot, slotLabel, slotType, 
     if (form.weaponFamily.trim() !== (template.weaponFamily ?? "")) overrides.weaponFamily = form.weaponFamily.trim() || null;
     if (form.damageDice.trim() !== (template.damageDice ?? "")) overrides.damageDice = form.damageDice.trim() || null;
     if (form.bonusCritDice.trim() !== (template.bonusCritDice ?? "")) overrides.bonusCritDice = form.bonusCritDice.trim() || null;
-    if (statBonusesParsed !== undefined) overrides.statBonuses = statBonusesParsed;
     if (form.description.trim() !== (template.description ?? "")) overrides.description = form.description.trim() || null;
 
     startTransition(async () => {
@@ -207,11 +197,7 @@ export function EquipmentPickerDialog({ characterId, slot, slotLabel, slotType, 
                       <p className="text-sm font-medium truncate">{t.name}</p>
                       <p className="text-xs text-muted-foreground mt-0.5">
                         {t.weaponFamily && <>{t.weaponFamily} · </>}
-                        {t.damageDice && <>{t.damageDice} · </>}
-                        {t.statBonuses &&
-                          Object.entries(t.statBonuses)
-                            .map(([k, v]) => `+${String(v)} ${k}`)
-                            .join(", ")}
+                        {t.damageDice && <>{t.damageDice}</>}
                       </p>
                       {t.description && (
                         <p className="text-xs text-muted-foreground/60 mt-0.5 truncate">{t.description}</p>
@@ -280,14 +266,8 @@ function ModifyFormView({
   onSubmit: () => void;
   pending: boolean;
 }) {
-  const [jsonError, setJsonError] = useState(false);
-
   function setField(k: keyof ModifyForm, v: string) {
     onChange({ ...form, [k]: v });
-    if (k === "statBonuses") {
-      try { if (v.trim()) JSON.parse(v); setJsonError(false); }
-      catch { setJsonError(true); }
-    }
   }
 
   return (
@@ -345,21 +325,6 @@ function ModifyFormView({
       </div>
 
       <div className="space-y-1">
-        <label className="text-xs text-muted-foreground">Бонусы характеристик (JSON)</label>
-        <textarea
-          value={form.statBonuses}
-          onChange={(e) => { setField("statBonuses", e.target.value); }}
-          rows={2}
-          placeholder='{"strength": 2}'
-          className={cn(
-            "w-full resize-none rounded border bg-background px-2 py-1.5 text-sm font-mono outline-none focus:ring-2 focus:ring-ring",
-            jsonError && "border-destructive",
-          )}
-        />
-        {jsonError && <p className="text-xs text-destructive">Некорректный JSON</p>}
-      </div>
-
-      <div className="space-y-1">
         <label className="text-xs text-muted-foreground">Описание</label>
         <textarea
           value={form.description}
@@ -371,7 +336,7 @@ function ModifyFormView({
 
       <button
         type="button"
-        disabled={pending || jsonError}
+        disabled={pending}
         onClick={onSubmit}
         className="w-full rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-40"
       >

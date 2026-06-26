@@ -14,7 +14,12 @@ export async function GET(req: NextRequest) {
   const skills = await prisma.skill.findMany({
     where: {
       deletedAt: null,
-      ...(q ? { name: { contains: q, mode: "insensitive" } } : {}),
+      ...(q ? {
+        OR: [
+          { name: { contains: q, mode: "insensitive" } },
+          { authorName: { contains: q, mode: "insensitive" } },
+        ],
+      } : {}),
       ...(type ? { skillType: type as "innate" | "acquired" } : {}),
     },
     orderBy: [{ tier: "asc" }, { name: "asc" }],
@@ -29,6 +34,7 @@ export async function GET(req: NextRequest) {
       manaCost: true,
       apCost: true,
       icon: true,
+      authorName: true,
     },
   });
 

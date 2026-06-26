@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { prisma } from "@gob/db";
 import { CharacterSheet } from "@/components/character-sheet/character-sheet";
+import { loadRuleConfig } from "@/lib/rule-config";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -9,7 +10,7 @@ interface Props {
 }
 
 export default async function CharacterPage({ params, searchParams }: Props) {
-  const [{ id }, { tab }, session] = await Promise.all([params, searchParams, auth()]);
+  const [{ id }, { tab }, session, ruleConfig] = await Promise.all([params, searchParams, auth(), loadRuleConfig()]);
   if (!session) return null;
 
   const character = await prisma.character.findFirst({
@@ -85,6 +86,7 @@ export default async function CharacterPage({ params, searchParams }: Props) {
       activeTab={tab ?? "description"}
       viewerRole={session.user.role}
       viewerId={session.user.id}
+      ruleConfig={ruleConfig}
     />
   );
 }

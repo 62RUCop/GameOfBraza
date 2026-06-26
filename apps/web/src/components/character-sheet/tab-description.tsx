@@ -58,32 +58,12 @@ export function TabDescription({ character, canEdit }: Props) {
         />
       </Section>
 
-      <Section title="Врождённая способность">
-        {(() => {
-          const innate = character.characterSkills.find((cs) => cs.skill.skillType === "innate");
-          if (!innate) return <p className="text-sm text-muted-foreground">Не задана</p>;
-          const s = innate.skill;
-          return (
-            <>
-              <Field label="Название" value={s.name} />
-              <Field label="Тир" value={String(s.tier)} />
-              {(s.manaCost != null || s.apCost != null) && (
-                <div className="flex items-baseline justify-between gap-2">
-                  <span className="text-sm text-muted-foreground">Стоимость</span>
-                  <span className="text-sm font-medium">
-                    {[
-                      s.manaCost != null && `💧 ${String(s.manaCost)}`,
-                      s.apCost != null && `⚡ ${String(s.apCost)} ОД`,
-                    ].filter(Boolean).join("  ")}
-                  </span>
-                </div>
-              )}
-              {s.description && (
-                <p className="mt-1 text-sm text-muted-foreground">{s.description}</p>
-              )}
-            </>
-          );
-        })()}
+      <Section title="Изображение">
+        <AppearanceImageField
+          value={character.appearanceImage ?? ""}
+          canEdit={canEdit}
+          onCommit={(v) => updateCharacterInfo({ characterId: character.id, appearanceImage: v || null })}
+        />
       </Section>
 
       <Section title="Квента" className="sm:col-span-2">
@@ -253,6 +233,70 @@ function EditableNumberField({
           {value}
         </button>
       )}
+    </div>
+  );
+}
+
+// ─── Appearance image field ───────────────────────────────────────────────────
+
+function AppearanceImageField({
+  value,
+  canEdit,
+  onCommit,
+}: {
+  value: string;
+  canEdit: boolean;
+  onCommit: (v: string) => Promise<unknown>;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value);
+  const [isPending, startTransition] = useTransition();
+
+  function commit() {
+    if (draft === value) { setEditing(false); return; }
+    startTransition(async () => {
+      await onCommit(draft.trim());
+      setEditing(false);
+    });
+  }
+
+  return (
+    <div className="space-y-3">
+      {value && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={value}
+          alt="Изображение персонажа"
+          className="w-full rounded-md object-cover max-h-64"
+        />
+      )}
+      {!value && !canEdit && (
+        <p className="text-sm text-muted-foreground">Не задано</p>
+      )}
+      {editing ? (
+        <div className="space-y-1">
+          <input
+            autoFocus
+            value={draft}
+            onChange={(e) => { setDraft(e.target.value); }}
+            onBlur={commit}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") commit();
+              if (e.key === "Escape") { setEditing(false); setDraft(value); }
+            }}
+            placeholder="URL изображения"
+            className="w-full rounded border bg-background px-2 py-1 text-sm outline-none ring-2 ring-ring"
+          />
+        </div>
+      ) : canEdit ? (
+        <button
+          disabled={isPending}
+          onClick={() => { setDraft(value); setEditing(true); }}
+          className="text-xs text-muted-foreground hover:underline decoration-dashed"
+        >
+          {value ? "Изменить URL" : "Добавить URL изображения"}
+        </button>
+      ) : null}
     </div>
   );
 }

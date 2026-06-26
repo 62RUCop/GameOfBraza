@@ -205,10 +205,10 @@ model Skill {
   occupiesSlot   Boolean       @default(true)
   tier           Int
   guildId        String?
-  tiedAttribute  StatAttribute?
   manaCost       Int?
   apCost         Int?
   icon           String?
+  authorName     String?
   deletedAt      DateTime?
 
   characterSkills    CharacterSkill[]
@@ -246,7 +246,6 @@ model ItemTemplate {
   bonusCritDice       String?
   scalingAttribute    StatAttribute?
   scalingCoefficient  Decimal?      @db.Decimal(5, 3)
-  statBonuses         Json?
   hungerRestored      Int?
   referencePrice      Decimal       @default(0) @db.Decimal(12, 2)
   description         String?       @db.Text
@@ -322,6 +321,8 @@ model Character {
   mainQuest          String?   @db.Text
   questProgressStage Int       @default(0)
   playerNotes        String?   @db.Text
+  buffs              String?   @db.Text
+  debuffs            String?   @db.Text
   unallocatedPoints  Int       @default(0)
   groupId            String?
   groupName          String?
@@ -430,6 +431,7 @@ model RuntimeState {
   // critBonus pair
   critBonusOverride      Int?
   critBonusManualOverride Boolean @default(false)
+  critBonusOverrideAuthor String?
 
   // bubble charges
   bubbleCharges Int @default(0)

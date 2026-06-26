@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { prisma } from "@gob/db";
-import { computeDerived, DEFAULT_RULE_CONFIG } from "@gob/rules";
+import { computeDerived } from "@gob/rules";
+import { loadRuleConfig } from "@/lib/rule-config";
 
 async function requireGm() {
   const session = await auth();
@@ -125,10 +126,11 @@ export async function gmSetAttribute(input: {
     [input.stat]: input.value,
   };
 
+  const ruleConfig = await loadRuleConfig();
   const derived = computeDerived(
     { str: newAttrs.strength, dex: newAttrs.dexterity, int: newAttrs.intelligence, spi: newAttrs.spirit, end: newAttrs.endurance, luc: newAttrs.luck },
     { hp: 0 },
-    DEFAULT_RULE_CONFIG,
+    ruleConfig,
   );
 
   const rt = character.runtimeState;

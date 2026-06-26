@@ -9,6 +9,7 @@ import type {
   Character, CharacterAttributes, Currency, Group, InnateAbility, Pet, Race, RuntimeState, Role,
   BackpackSlot, CharacterSkill, ItemInstance, Reputation, Skill, ItemTemplate, SkillCategory,
 } from "@gob/db";
+import type { RuleConfig } from "@gob/rules";
 
 export type SerializedGroup = Omit<Group, "modifierValue"> & { modifierValue: number | null };
 import { TabDescription } from "./tab-description";
@@ -72,9 +73,10 @@ interface Props {
   activeTab: string;
   viewerRole: Role;
   viewerId: string;
+  ruleConfig: RuleConfig;
 }
 
-export function CharacterSheet({ character, activeTab, viewerRole, viewerId }: Props) {
+export function CharacterSheet({ character, activeTab, viewerRole, viewerId, ruleConfig }: Props) {
   const pathname = usePathname();
   const router = useRouter();
   const isOwner = character.ownerId === viewerId;
@@ -108,7 +110,7 @@ export function CharacterSheet({ character, activeTab, viewerRole, viewerId }: P
       case "description":
         return <TabDescription character={character} canEdit={canEdit} />;
       case "attributes":
-        return <TabAttributes character={character} canEdit={canEdit} viewerRole={viewerRole} />;
+        return <TabAttributes character={character} canEdit={canEdit} viewerRole={viewerRole} ruleConfig={ruleConfig} />;
       case "equipment":
         return <TabEquipment character={character} canEdit={canEdit} />;
       case "skills":
