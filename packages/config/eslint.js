@@ -10,6 +10,12 @@ export function baseConfig(isNext = false) {
     {
       rules: {
         "@typescript-eslint/no-explicit-any": "error",
+        // Пустая строка — осмысленное «отсутствие значения», поэтому `||` для строк
+        // (trim() || fallback) допустим; `??` остаётся обязательным для чисел/булевых.
+        "@typescript-eslint/prefer-nullish-coalescing": [
+          "error",
+          { ignorePrimitives: { string: true } },
+        ],
         "@typescript-eslint/consistent-type-imports": [
           "error",
           { prefer: "type-imports" },

@@ -98,14 +98,6 @@ function Section({ title, children, className }: { title: string; children: Reac
   );
 }
 
-function Field({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-baseline justify-between gap-2">
-      <span className="text-sm text-muted-foreground">{label}</span>
-      <span className="text-sm font-medium">{value}</span>
-    </div>
-  );
-}
 
 function RaceField({ value, canEdit, onOpen }: { value: string; canEdit: boolean; onOpen: () => void }) {
   return <PickerField label="Раса" value={value} canEdit={canEdit} onOpen={onOpen} />;
@@ -263,7 +255,6 @@ function AppearanceImageField({
   return (
     <div className="space-y-3">
       {value && (
-        // eslint-disable-next-line @next/next/no-img-element
         <img
           src={value}
           alt="Изображение персонажа"

@@ -293,7 +293,7 @@ function SkillForm({
       const result = editingSkill
         ? await updateSkillByPlayer({ ...payload, skillId: editingSkill.id })
         : await createSkillAndAdd(payload);
-      if (result && "error" in result) { setError(result.error); } else { onSaved(); }
+      if ("error" in result) { setError(result.error); } else { onSaved(); }
     });
   }
 

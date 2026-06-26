@@ -2,7 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
-import { prisma, Prisma } from "@gob/db";
+import { prisma } from "@gob/db";
+import type { Prisma } from "@gob/db";
 import type { RuleConfig } from "@gob/rules";
 import { loadRuleConfig } from "@/lib/rule-config";
 
