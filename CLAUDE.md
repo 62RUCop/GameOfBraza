@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-Цифровая анкета персонажа для настольной RPG-системы. Полное ТЗ — в `docs/TZ.md` (читай его при работе над любой игровой механикой). Дорожная карта (что сделано и векторы развития) — в `TODO.md`. Этот файл — правила, которые действуют всегда.
+Цифровая анкета персонажа для настольной RPG-системы. Полное ТЗ — в `docs/TZ.md` (читай его при работе над любой игровой механикой). Дорожная карта (что сделано и векторы развития) — в `TODO.md`. План PWA / мобильного приложения — в `MOBILE-APP.md`. Этот файл — правила, которые действуют всегда.
 
 > Перед задачей сверяйся с `TODO.md`, а по факту выполнения/старта пункта — обновляй его статус (✅/🚧/⬜). Не дублируй в этот файл то, что место в `TODO.md`: здесь правила, там — план.
 
@@ -122,7 +122,7 @@ Frontend: Next.js 15 + React 19, Tailwind + shadcn/ui (Radix), TanStack Query, Z
 Backend: Next.js App Router — Server Actions (`src/actions/*`) + Route Handlers (`src/app/api/*`). БД: PostgreSQL + Prisma 6.
 Auth: Auth.js / NextAuth v5 — Credentials (email+пароль, bcryptjs), JWT-сессии, роль в токене, защита через `middleware.ts`. Монорепо: pnpm workspaces + Turborepo.
 
-**Ещё не реализовано (план, не выдавай за готовое):** PWA (есть только `manifest` в метаданных, без `serwist`/`next-pwa`); загрузка картинок в S3/R2 (`appearanceImage` пока просто строка, presigned-upload нет).
+**Ещё не реализовано (план, не выдавай за готовое):** PWA (есть только `manifest` в метаданных, без `serwist`/`next-pwa` — план в `MOBILE-APP.md`); загрузка картинок в S3/R2 (`appearanceImage` пока просто строка, presigned-upload нет).
 
 ---
 
