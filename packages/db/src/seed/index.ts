@@ -5,7 +5,7 @@ import { seedGroups } from "./groups-defaults.js";
 import { seedNpcArchetypes } from "./npc-archetypes-defaults.js";
 import { seedInitialAdmin } from "./initial-admin.js";
 import { seedDevUsers } from "./users-dev.js";
-import { seedItemTemplates } from "./item-templates.js";
+import { seedItemTemplates } from "./Gob_markets.js";
 import { seedDemoCharacter } from "./character-demo.js";
 
 const prisma = new PrismaClient();
@@ -17,12 +17,12 @@ async function main() {
   await seedRaces(prisma);
   await seedGroups(prisma);
   await seedNpcArchetypes(prisma);
-  // Каталог предметов из Gob_markets.csv — справочник, upsert идемпотентен.
-  await seedItemTemplates(prisma);
-  // Первичный admin из ENV (работает и в production).
+  // Первичный admin из ENV (работает и в production) — сидим до каталога.
   await seedInitialAdmin(prisma);
   // Dev-пользователи — только вне production.
   await seedDevUsers(prisma);
+  // Каталог предметов — статический TS-справочник (Gob_markets.ts), upsert идемпотентен.
+  await seedItemTemplates(prisma);
 
   // Демо-данные (SEED_DEMO=true): дев-пользователи + готовый тестовый персонаж
   // для быстрой проверки UI. Идемпотентно (guard по имени + ownerId).
