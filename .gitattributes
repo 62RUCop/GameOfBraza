@@ -3,3 +3,6 @@
 *.sh text eol=lf
 Makefile text eol=lf
 start.sh text eol=lf
+
+# Git-хуки исполняются /bin/sh — обязательно LF (иначе #!/bin/sh\r ломает shebang).
+.githooks/* text eol=lf

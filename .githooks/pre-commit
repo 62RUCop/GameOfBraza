@@ -1,0 +1,18 @@
+#!/bin/sh
+# Pre-commit gate проекта (см. CLAUDE.md): lint + typecheck + test обязаны проходить.
+# `next build` в Docker-деплое гоняет ESLint, поэтому красный lint ломает прод-сборку —
+# ловим это локально, до коммита, а не на VM при `sudo ./start.sh`.
+#
+# Разовый обход (например, WIP-коммит): git commit --no-verify
+set -e
+
+echo "▶ pre-commit › pnpm lint"
+pnpm lint
+
+echo "▶ pre-commit › pnpm typecheck"
+pnpm typecheck
+
+echo "▶ pre-commit › pnpm test"
+pnpm test
+
+echo "✓ pre-commit: проверки пройдены"
