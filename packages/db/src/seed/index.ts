@@ -5,7 +5,7 @@ import { seedGroups } from "./groups-defaults.js";
 import { seedNpcArchetypes } from "./npc-archetypes-defaults.js";
 import { seedInitialAdmin } from "./initial-admin.js";
 import { seedDevUsers } from "./users-dev.js";
-import { seedItemTemplates } from "./Gob_markets.js";
+import { seedItemTemplates } from "./item-templates-defaults.js";
 import { seedDemoCharacter } from "./character-demo.js";
 
 const prisma = new PrismaClient();
@@ -21,7 +21,7 @@ async function main() {
   await seedInitialAdmin(prisma);
   // Dev-пользователи — только вне production.
   await seedDevUsers(prisma);
-  // Каталог предметов — статический TS-справочник (Gob_markets.ts), upsert идемпотентен.
+  // Каталог предметов — статический TS-справочник (item-templates-defaults.ts), upsert идемпотентен.
   await seedItemTemplates(prisma);
 
   // Демо-данные (SEED_DEMO=true): дев-пользователи + готовый тестовый персонаж

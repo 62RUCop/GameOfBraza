@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ITEM_TEMPLATES, type ItemTemplateSeed } from "../Gob_markets.js";
+import { ITEM_TEMPLATES, type ItemTemplateSeed } from "../item-templates-defaults.js";
 
 // Каталог теперь — статические TS-данные (ранее парсились из Gob_markets.csv).
 // Тест охраняет целостность перенесённых данных: количество, уникальность ключей,
