@@ -81,7 +81,18 @@ git clone <repo-url> && cd GameOfBraza
 ./start.sh                 # или: make up
 ```
 
-Больше ничего делать не нужно. `start.sh` при первом запуске сам:
+> **Windows.** Нужен Docker Desktop (включает `docker compose` v2). Вместо
+> `./start.sh` запускай PowerShell-аналог — или двойной клик по `start.cmd`:
+>
+> ```powershell
+> git clone <repo-url>; cd GameOfBraza
+> .\start.ps1
+> ```
+>
+> `start.ps1` делает ровно те же шаги, что и `start.sh` (секреты генерирует
+> средствами .NET, без `openssl`).
+
+Больше ничего делать не нужно. `start.sh` (на Windows — `start.ps1`) при первом запуске сам:
 
 1. создаёт `.env` из `.env.production.example`, если его нет;
 2. генерирует `AUTH_SECRET` (`openssl rand -hex 32`), если он пуст;
@@ -101,12 +112,13 @@ git clone <repo-url> && cd GameOfBraza
 
 ### Последующие запуски и обновление версии
 
-Тот же `start.sh` запускают и для обновления — он идемпотентен. Секреты в `.env`
-уже есть и повторно не генерируются.
+Тот же `start.sh` (на Windows — `start.ps1`) запускают и для обновления — он
+идемпотентен. Секреты в `.env` уже есть и повторно не генерируются.
 
 ```bash
 git pull                   # подтянуть новую версию кода
 ./start.sh                 # пересобрать, применить новые миграции, перезапустить
+#  Windows: git pull; .\start.ps1
 ```
 
 Что происходит при повторном запуске:

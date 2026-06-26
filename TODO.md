@@ -57,6 +57,7 @@
   - стартует сервер и печатает URL `http://localhost:3000`.
 - ✅ Генерация `AUTH_SECRET` при первом запуске, если не задан; `.env.production.example`.
 - ✅ Идемпотентный seed (`upsert` везде) + первичный admin из ENV (`initial-admin.ts`) + флаг `SEED_DEMO` (dev-пользователи).
+- ✅ Windows-аналог bootstrap-скрипта: `start.ps1` (+ `start.cmd` для запуска двойным кликом) — повторяет логику `start.sh` на PowerShell, секреты через .NET RNG вместо `openssl`.
 - ✅ README-раздел «Деплой одной командой».
 
 ### 2. Публичный API + мобильное приложение ⬜
