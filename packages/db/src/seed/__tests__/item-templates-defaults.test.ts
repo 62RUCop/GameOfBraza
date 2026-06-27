@@ -41,10 +41,9 @@ describe("спот-чеки значений (сохранены при пере
     expect(byName("Сила Двуручный Тир 3")?.referencePrice).toBe("84");
   });
 
-  it("еда: цена 12 бронзы + 11 голода", () => {
+  it("еда: цена 12 бронзы", () => {
     const food = byName("Еда Тир 4");
     expect(food?.referencePrice).toBe("12");
-    expect(food?.hungerRestored).toBe(11);
   });
 
   it("масштабирование силового двуручника: коэффициент 1", () => {

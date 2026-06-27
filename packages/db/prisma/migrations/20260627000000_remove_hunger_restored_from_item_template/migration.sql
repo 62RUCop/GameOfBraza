@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "item_templates" DROP COLUMN IF EXISTS "hungerRestored";

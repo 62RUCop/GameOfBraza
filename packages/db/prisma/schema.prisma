@@ -246,7 +246,6 @@ model ItemTemplate {
   bonusCritDice       String?
   scalingAttribute    StatAttribute?
   scalingCoefficient  Decimal?      @db.Decimal(5, 3)
-  hungerRestored      Int?
   referencePrice      Decimal       @default(0) @db.Decimal(12, 2)
   description         String?       @db.Text
   icon                String?

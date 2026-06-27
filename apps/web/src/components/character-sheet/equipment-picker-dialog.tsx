@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import { cn } from "@gob/ui";
-import { createItemInSlot } from "@/actions/characters";
+import { createItemInSlot, updateItemInstance } from "@/actions/characters";
 
 interface ItemTemplateSummary {
   id: string;
@@ -24,15 +24,33 @@ interface ModifyForm {
   description: string;
 }
 
+/** Данные для редактирования уже надетого экземпляра предмета.
+ *  `base` — значения шаблона (для diff в overrides), null для кастомного предмета. */
+export interface EditingItemInput {
+  id: string;
+  base: {
+    name: string;
+    tier: number;
+    weaponFamily: string | null;
+    damageDice: string | null;
+    bonusCritDice: string | null;
+    description: string | null;
+  } | null;
+  effective: ModifyForm;
+}
+
 interface Props {
   characterId: string;
   slot: string;
   slotLabel: string;
   slotType: string;
   onClose: () => void;
+  editingItem?: EditingItemInput;
 }
 
-export function EquipmentPickerDialog({ characterId, slot, slotLabel, slotType, onClose }: Props) {
+export function EquipmentPickerDialog({ characterId, slot, slotLabel, slotType, onClose, editingItem }: Props) {
+  // Боевые поля (урон/крит-кубик) — только у оружейных слотов.
+  const isWeapon = slotType === "weapon_left" || slotType === "weapon_right";
   const [query, setQuery] = useState("");
   const [templates, setTemplates] = useState<ItemTemplateSummary[]>([]);
   const [loading, setLoading] = useState(false);
@@ -40,12 +58,14 @@ export function EquipmentPickerDialog({ characterId, slot, slotLabel, slotType, 
   const [showCustom, setShowCustom] = useState(false);
   const [pending, startTransition] = useTransition();
   const [modifying, setModifying] = useState<{ template: ItemTemplateSummary; form: ModifyForm } | null>(null);
+  // Форма правки текущего экземпляра: открыта сразу, если зашли по клику на надетый предмет.
+  const [editForm, setEditForm] = useState<ModifyForm | null>(editingItem ? editingItem.effective : null);
   const backdropRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (!modifying) inputRef.current?.focus();
-  }, [modifying]);
+    if (!modifying && !editForm) inputRef.current?.focus();
+  }, [modifying, editForm]);
 
   useEffect(() => {
     const ctrl = new AbortController();
@@ -93,6 +113,40 @@ export function EquipmentPickerDialog({ characterId, slot, slotLabel, slotType, 
     });
   }
 
+  function submitInstanceEdit() {
+    if (!editingItem || !editForm) return;
+    const base = editingItem.base;
+    const f = editForm;
+    const overrides: Record<string, unknown> = {};
+
+    const name = f.name.trim();
+    if (base ? name !== base.name : name.length > 0) overrides.name = name || null;
+
+    const tierRaw = f.tier.trim();
+    const tierNum = parseInt(tierRaw, 10);
+    if (tierRaw !== "" && !isNaN(tierNum) && (base ? tierNum !== base.tier : true)) {
+      overrides.tier = tierNum;
+    }
+
+    const strField = (key: "weaponFamily" | "damageDice" | "bonusCritDice" | "description", baseVal: string | null | undefined) => {
+      const v = f[key].trim();
+      if (base) {
+        if (v !== (baseVal ?? "")) overrides[key] = v || null;
+      } else if (v) {
+        overrides[key] = v;
+      }
+    };
+    strField("weaponFamily", base?.weaponFamily);
+    strField("damageDice", base?.damageDice);
+    strField("bonusCritDice", base?.bonusCritDice);
+    strField("description", base?.description);
+
+    startTransition(async () => {
+      await updateItemInstance({ characterId, itemInstanceId: editingItem.id, overrides });
+      onClose();
+    });
+  }
+
   function submitModify() {
     if (!modifying) return;
     const { template, form } = modifying;
@@ -122,11 +176,22 @@ export function EquipmentPickerDialog({ characterId, slot, slotLabel, slotType, 
         {/* Header */}
         <div className="flex items-center justify-between px-4 pt-4 pb-2 border-b shrink-0">
           <h2 className="text-sm font-semibold">
-            {modifying
-              ? <>Модификация — <span className="text-muted-foreground font-normal">{modifying.template.name}</span></>
-              : <>Снаряжение — <span className="text-muted-foreground font-normal">{slotLabel}</span></>}
+            {editForm
+              ? <>Редактировать — <span className="text-muted-foreground font-normal">{editForm.name || slotLabel}</span></>
+              : modifying
+                ? <>Модификация — <span className="text-muted-foreground font-normal">{modifying.template.name}</span></>
+                : <>Снаряжение — <span className="text-muted-foreground font-normal">{slotLabel}</span></>}
           </h2>
           <div className="flex items-center gap-3">
+            {editForm && (
+              <button
+                type="button"
+                onClick={() => { setEditForm(null); }}
+                className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Выбрать другой
+              </button>
+            )}
             {modifying && (
               <button
                 type="button"
@@ -147,12 +212,22 @@ export function EquipmentPickerDialog({ characterId, slot, slotLabel, slotType, 
           </div>
         </div>
 
-        {modifying ? (
+        {editForm ? (
+          <ModifyFormView
+            form={editForm}
+            onChange={setEditForm}
+            onSubmit={submitInstanceEdit}
+            pending={pending}
+            isWeapon={isWeapon}
+            submitLabel="Сохранить"
+          />
+        ) : modifying ? (
           <ModifyFormView
             form={modifying.form}
             onChange={(form) => { setModifying((prev) => prev ? { ...prev, form } : null); }}
             onSubmit={submitModify}
             pending={pending}
+            isWeapon={isWeapon}
           />
         ) : (
           <>
@@ -260,11 +335,15 @@ function ModifyFormView({
   onChange,
   onSubmit,
   pending,
+  isWeapon,
+  submitLabel = "Надеть модифицированный",
 }: {
   form: ModifyForm;
   onChange: (form: ModifyForm) => void;
   onSubmit: () => void;
   pending: boolean;
+  isWeapon: boolean;
+  submitLabel?: string;
 }) {
   function setField(k: keyof ModifyForm, v: string) {
     onChange({ ...form, [k]: v });
@@ -296,7 +375,7 @@ function ModifyFormView({
           />
         </div>
         <div className="space-y-1">
-          <label className="text-xs text-muted-foreground">Семейство оружия</label>
+          <label className="text-xs text-muted-foreground">Семейство</label>
           <input
             value={form.weaponFamily}
             onChange={(e) => { setField("weaponFamily", e.target.value); }}
@@ -304,24 +383,28 @@ function ModifyFormView({
             className="w-full rounded border bg-background px-2 py-1.5 text-sm outline-none focus:ring-2 focus:ring-ring"
           />
         </div>
-        <div className="space-y-1">
-          <label className="text-xs text-muted-foreground">Кубик урона</label>
-          <input
-            value={form.damageDice}
-            onChange={(e) => { setField("damageDice", e.target.value); }}
-            placeholder="напр. 1d6"
-            className="w-full rounded border bg-background px-2 py-1.5 text-sm outline-none focus:ring-2 focus:ring-ring"
-          />
-        </div>
-        <div className="space-y-1">
-          <label className="text-xs text-muted-foreground">Бонусный крит-кубик</label>
-          <input
-            value={form.bonusCritDice}
-            onChange={(e) => { setField("bonusCritDice", e.target.value); }}
-            placeholder="напр. 1d4"
-            className="w-full rounded border bg-background px-2 py-1.5 text-sm outline-none focus:ring-2 focus:ring-ring"
-          />
-        </div>
+        {isWeapon && (
+          <div className="space-y-1">
+            <label className="text-xs text-muted-foreground">Кубик урона</label>
+            <input
+              value={form.damageDice}
+              onChange={(e) => { setField("damageDice", e.target.value); }}
+              placeholder="напр. 1d6"
+              className="w-full rounded border bg-background px-2 py-1.5 text-sm outline-none focus:ring-2 focus:ring-ring"
+            />
+          </div>
+        )}
+        {isWeapon && (
+          <div className="space-y-1">
+            <label className="text-xs text-muted-foreground">Бонусный крит-кубик</label>
+            <input
+              value={form.bonusCritDice}
+              onChange={(e) => { setField("bonusCritDice", e.target.value); }}
+              placeholder="напр. 1d4"
+              className="w-full rounded border bg-background px-2 py-1.5 text-sm outline-none focus:ring-2 focus:ring-ring"
+            />
+          </div>
+        )}
       </div>
 
       <div className="space-y-1">
@@ -340,7 +423,7 @@ function ModifyFormView({
         onClick={onSubmit}
         className="w-full rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-40"
       >
-        {pending ? "…" : "Надеть модифицированный"}
+        {pending ? "…" : submitLabel}
       </button>
     </div>
   );

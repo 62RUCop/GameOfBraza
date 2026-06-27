@@ -2,8 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
-import type { Prisma } from "@gob/db";
-import { prisma } from "@gob/db";
+import { Prisma, prisma } from "@gob/db";
 import { computeDerived } from "@gob/rules";
 import { loadRuleConfig } from "@/lib/rule-config";
 
@@ -455,6 +454,30 @@ export async function unequipItem(input: {
   await prisma.itemInstance.update({
     where: { id: input.itemInstanceId },
     data: { location: "backpack" },
+  });
+
+  revalidatePath(`/characters/${input.characterId}`);
+  return { ok: true };
+}
+
+/** Обновить overrides существующего экземпляра предмета (редактирование надетого).
+ *  Базовый шаблон не трогаем — правки живут как overrides конкретного экземпляра. */
+export async function updateItemInstance(input: {
+  characterId: string;
+  itemInstanceId: string;
+  overrides: Record<string, unknown>;
+}) {
+  const check = await assertCanEditCharacter(input.characterId);
+  if ("error" in check) return check;
+
+  const hasOverrides = Object.keys(input.overrides).length > 0;
+  await prisma.itemInstance.update({
+    where: { id: input.itemInstanceId },
+    data: {
+      overrides: hasOverrides
+        ? (input.overrides as Prisma.InputJsonValue)
+        : Prisma.JsonNull,
+    },
   });
 
   revalidatePath(`/characters/${input.characterId}`);

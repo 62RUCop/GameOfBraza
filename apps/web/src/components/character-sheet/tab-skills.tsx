@@ -46,6 +46,9 @@ export function TabSkills({ character, canEdit, ruleConfig }: Props) {
   ).slots;
   const effectiveSlots =
     rt?.slotsManualOverride && rt.slotsOverride != null ? rt.slotsOverride : computedSlots;
+  // maxSlots — рекомендация (формула INT либо ручной оверрайд): показывается в
+  // счётчике, но НЕ ограничивает книгу (золотое правило 1). Сами ячейки растут
+  // по факту добавления способностей.
   const maxSlots = Math.max(effectiveSlots, 1);
 
   const innateSkill = character.characterSkills.find((cs) => cs.skill.skillType === "innate") ?? null;
@@ -53,17 +56,26 @@ export function TabSkills({ character, canEdit, ruleConfig }: Props) {
     (cs) => cs.skill.occupiesSlot && cs.skill.skillType !== "innate",
   );
 
-  const totalSpreads = Math.max(1, Math.ceil(maxSlots / SLOTS_PER_SPREAD));
-  const spreadStart = spread * SLOTS_PER_SPREAD;
+  // Ячейки появляются по мере добавления: заполненные + одна пустая «для добавления»
+  // следующей (только когда можно редактировать). Страницы книги растут вслед за
+  // числом видимых ячеек.
+  const visibleSlots = Math.max(1, slotSkills.length + (canEdit ? 1 : 0));
+
+  const totalSpreads = Math.max(1, Math.ceil(visibleSlots / SLOTS_PER_SPREAD));
+  const currentSpread = Math.min(spread, totalSpreads - 1);
+  const spreadStart = currentSpread * SLOTS_PER_SPREAD;
 
   const slots: (FullCharacterSkill | null)[] = Array.from(
-    { length: maxSlots },
+    { length: visibleSlots },
     (_, i) => slotSkills[i] ?? null,
   );
 
-  const currentSix = Array.from({ length: SLOTS_PER_SPREAD }, (_, i) => slots[spreadStart + i] ?? null);
-  const leftSlots = currentSix.slice(0, 3);
-  const rightSlots = currentSix.slice(3, 6);
+  // Рисуем ровно столько ячеек, сколько их видно на текущем развороте (без
+  // «добивки» пустыми до шести), чтобы ячейки не появлялись раньше времени.
+  const cellsThisSpread = Math.max(0, Math.min(SLOTS_PER_SPREAD, visibleSlots - spreadStart));
+  const currentCells = Array.from({ length: cellsThisSpread }, (_, i) => slots[spreadStart + i] ?? null);
+  const leftSlots = currentCells.slice(0, 3);
+  const rightSlots = currentCells.slice(3, 6);
 
   const currentMana = rt?.currentMana ?? 0;
   const manaMax = rt?.manaMaxComputed ?? 0;
@@ -118,7 +130,7 @@ export function TabSkills({ character, canEdit, ruleConfig }: Props) {
           {/* Разворот книги */}
           <div className="flex rounded-lg overflow-hidden">
             {/* Левая страница */}
-            <div className="flex-1 p-3 space-y-2 bg-gradient-to-r from-white via-zinc-50 to-zinc-100 dark:from-zinc-900 dark:via-zinc-900 dark:to-zinc-800">
+            <div className="flex-1 min-h-[190px] p-3 space-y-2 bg-gradient-to-r from-white via-zinc-50 to-zinc-100 dark:from-zinc-900 dark:via-zinc-900 dark:to-zinc-800">
               <PageCornerDecor side="left" />
               {leftSlots.map((cs, i) => (
                 <SkillBookSlot
@@ -147,7 +159,7 @@ export function TabSkills({ character, canEdit, ruleConfig }: Props) {
             </div>
 
             {/* Правая страница */}
-            <div className="flex-1 p-3 space-y-2 bg-gradient-to-l from-white via-zinc-50 to-zinc-100 dark:from-zinc-900 dark:via-zinc-900 dark:to-zinc-800">
+            <div className="flex-1 min-h-[190px] p-3 space-y-2 bg-gradient-to-l from-white via-zinc-50 to-zinc-100 dark:from-zinc-900 dark:via-zinc-900 dark:to-zinc-800">
               <PageCornerDecor side="right" />
               {rightSlots.map((cs, i) => (
                 <SkillBookSlot
@@ -171,10 +183,10 @@ export function TabSkills({ character, canEdit, ruleConfig }: Props) {
                 <button
                   key={i}
                   onClick={() => { setSpread(i); }}
-                  title={`Страница ${String(i * SLOTS_PER_SPREAD + 1)}–${String(Math.min((i + 1) * SLOTS_PER_SPREAD, maxSlots))}`}
+                  title={`Страница ${String(i * SLOTS_PER_SPREAD + 1)}–${String(Math.min((i + 1) * SLOTS_PER_SPREAD, visibleSlots))}`}
                   className={cn(
                     "w-4 rounded-r transition-all",
-                    i === spread
+                    i === currentSpread
                       ? "h-8 bg-amber-200 dark:bg-amber-800"
                       : "h-6 opacity-70 hover:opacity-100 bg-zinc-400 dark:bg-zinc-600",
                   )}
@@ -186,8 +198,8 @@ export function TabSkills({ character, canEdit, ruleConfig }: Props) {
           {/* Нижняя полоса: мана + ОД + навигация */}
           <div className="mt-[3px] rounded-b-lg flex items-center justify-between px-4 py-1.5 bg-gradient-to-r from-zinc-200 via-zinc-100 to-zinc-200 dark:from-zinc-800 dark:via-zinc-750 dark:to-zinc-800">
             <button
-              onClick={() => { setSpread((s) => Math.max(0, s - 1)); }}
-              disabled={spread === 0}
+              onClick={() => { setSpread(Math.max(0, currentSpread - 1)); }}
+              disabled={currentSpread === 0}
               className="text-zinc-700/80 hover:text-zinc-900 dark:text-zinc-300/80 dark:hover:text-zinc-100 disabled:opacity-20 text-xl leading-none font-bold transition-colors"
               aria-label="Предыдущие ячейки"
             >
@@ -204,8 +216,8 @@ export function TabSkills({ character, canEdit, ruleConfig }: Props) {
             </div>
 
             <button
-              onClick={() => { setSpread((s) => Math.min(totalSpreads - 1, s + 1)); }}
-              disabled={spread >= totalSpreads - 1}
+              onClick={() => { setSpread(Math.min(totalSpreads - 1, currentSpread + 1)); }}
+              disabled={currentSpread >= totalSpreads - 1}
               className="text-zinc-700/80 hover:text-zinc-900 dark:text-zinc-300/80 dark:hover:text-zinc-100 disabled:opacity-20 text-xl leading-none font-bold transition-colors"
               aria-label="Следующие ячейки"
             >
@@ -316,11 +328,12 @@ function SkillBookSlot({
       )}
     >
       <div className="flex items-start gap-2">
-        {/* Иконка */}
+        {/* Иконка — у заполненной ячейки клик открывает редактирование текущего
+            скилла, у пустой — выбор нового. */}
         <button
           type="button"
           disabled={!canEdit}
-          onClick={onOpen}
+          onClick={skill && onEdit ? onEdit : onOpen}
           aria-label={skill ? skill.name : `Ячейка ${String(slotIndex + 1)}`}
           className={cn(
             "shrink-0 w-10 h-10 rounded-full border-2 overflow-hidden flex items-center justify-center transition-all mt-0.5",
@@ -472,7 +485,7 @@ function InnateSlot({
         <button
           type="button"
           disabled={!canEdit}
-          onClick={onOpen}
+          onClick={skill && onEdit ? onEdit : onOpen}
           aria-label={skill ? skill.name : "Врождённая способность"}
           className={cn(
             "shrink-0 w-10 h-10 rounded-full border-2 overflow-hidden flex items-center justify-center transition-all mt-0.5",

@@ -16,6 +16,12 @@ const SLOT_LABELS: Record<SlotType, string> = {
   weapon_left: "Оружие (лев)", weapon_right: "Оружие (прав)",
   ring: "Кольцо", amulet: "Амулет", pet: "Питомец", consumable: "Расходник",
 };
+
+// Видимость полей по типу слота: боевые поля (урон/крит/двуручность) — только
+// у оружия; характеристики и масштабирование — у любого надеваемого, кроме
+// расходников. weaponFamily — общая «категория», показывается везде.
+const WEAPON_SLOTS: SlotType[] = ["weapon_left", "weapon_right"];
+const isWeaponSlot = (s: SlotType): boolean => WEAPON_SLOTS.includes(s);
 const STAT_ATTRIBUTES: (StatAttribute | "")[] = ["", "strength", "dexterity", "intelligence", "spirit", "endurance", "luck"];
 const STAT_LABELS: Record<string, string> = {
   "": "—", strength: "СИЛ", dexterity: "ЛОВ", intelligence: "ИНТ",
@@ -33,7 +39,6 @@ interface FormData {
   bonusCritDice: string;
   scalingAttribute: StatAttribute | "";
   scalingCoefficient: string;
-  hungerRestored: string;
   referencePrice: string;
   description: string;
 }
@@ -42,7 +47,7 @@ const EMPTY_FORM: FormData = {
   name: "", slotType: "weapon_right", tier: 1, weaponFamily: "",
   isTwoHanded: false, requiredAttribute: "", damageDice: "", bonusCritDice: "",
   scalingAttribute: "", scalingCoefficient: "",
-  hungerRestored: "", referencePrice: "0", description: "",
+  referencePrice: "0", description: "",
 };
 
 function templateToForm(t: ItemTemplate): FormData {
@@ -57,7 +62,6 @@ function templateToForm(t: ItemTemplate): FormData {
     bonusCritDice: t.bonusCritDice ?? "",
     scalingAttribute: t.scalingAttribute ?? "",
     scalingCoefficient: t.scalingCoefficient?.toString() ?? "",
-    hungerRestored: t.hungerRestored?.toString() ?? "",
     referencePrice: t.referencePrice,
     description: t.description ?? "",
   };
@@ -152,26 +156,33 @@ function ItemForm({
   function submit() {
     if (!form.name.trim()) { setError("Введите название"); return; }
     setError(null);
+    // Поля привязаны к типу слота: боевые — только у оружия, характеристики/
+    // масштабирование — у любого надеваемого, кроме расходников. Это не игровая
+    // блокировка (золотое правило 1), а форма данных под тип предмета.
+    const isWeapon = isWeaponSlot(form.slotType);
+    const isConsumable = form.slotType === "consumable";
     startTransition(async () => {
       const result = await upsertItemTemplate({
         ...(editingId ? { id: editingId } : {}),
         name: form.name.trim(),
         slotType: form.slotType,
         tier: form.tier,
-        isTwoHanded: form.isTwoHanded,
+        isTwoHanded: isWeapon ? form.isTwoHanded : false,
         referencePrice: parseFloat(form.referencePrice) || 0,
         ...(form.weaponFamily.trim() ? { weaponFamily: form.weaponFamily.trim() } : {}),
-        ...(form.requiredAttribute ? { requiredAttribute: form.requiredAttribute } : {}),
-        ...(form.damageDice.trim() ? { damageDice: form.damageDice.trim() } : {}),
-        ...(form.bonusCritDice.trim() ? { bonusCritDice: form.bonusCritDice.trim() } : {}),
-        ...(form.scalingAttribute ? { scalingAttribute: form.scalingAttribute } : {}),
-        ...(form.scalingCoefficient ? { scalingCoefficient: parseFloat(form.scalingCoefficient) } : {}),
-        ...(form.hungerRestored ? { hungerRestored: parseInt(form.hungerRestored, 10) } : {}),
+        ...(!isConsumable && form.requiredAttribute ? { requiredAttribute: form.requiredAttribute } : {}),
+        ...(isWeapon && form.damageDice.trim() ? { damageDice: form.damageDice.trim() } : {}),
+        ...(isWeapon && form.bonusCritDice.trim() ? { bonusCritDice: form.bonusCritDice.trim() } : {}),
+        ...(!isConsumable && form.scalingAttribute ? { scalingAttribute: form.scalingAttribute } : {}),
+        ...(!isConsumable && form.scalingCoefficient ? { scalingCoefficient: parseFloat(form.scalingCoefficient) } : {}),
         ...(form.description.trim() ? { description: form.description.trim() } : {}),
       });
       if ("error" in result) { setError(result.error); } else { onSaved(); }
     });
   }
+
+  const isWeapon = isWeaponSlot(form.slotType);
+  const isConsumable = form.slotType === "consumable";
 
   return (
     <div className="rounded-lg border p-4 space-y-3 bg-background">
@@ -195,53 +206,60 @@ function ItemForm({
             className="w-full rounded border bg-background px-2 py-1.5 text-sm outline-none focus:ring-2 focus:ring-ring" />
         </div>
         <div className="space-y-1">
-          <label className="text-xs text-muted-foreground">Семейство оружия</label>
+          <label className="text-xs text-muted-foreground">Семейство</label>
           <input value={form.weaponFamily} onChange={(e) => { setField("weaponFamily", e.target.value); }}
             className="w-full rounded border bg-background px-2 py-1.5 text-sm outline-none focus:ring-2 focus:ring-ring" placeholder="—" />
         </div>
-        <div className="space-y-1">
-          <label className="text-xs text-muted-foreground">Требуемая характеристика</label>
-          <select value={form.requiredAttribute} onChange={(e) => { setField("requiredAttribute", e.target.value as StatAttribute | ""); }}
-            className="w-full rounded border bg-background px-2 py-1.5 text-sm outline-none">
-            {STAT_ATTRIBUTES.map((a) => <option key={a} value={a}>{STAT_LABELS[a]}</option>)}
-          </select>
-        </div>
-        <div className="space-y-1">
-          <label className="text-xs text-muted-foreground">Кубик урона</label>
-          <input value={form.damageDice} onChange={(e) => { setField("damageDice", e.target.value); }}
-            className="w-full rounded border bg-background px-2 py-1.5 text-sm outline-none focus:ring-2 focus:ring-ring" placeholder="напр. 1d6" />
-        </div>
-        <div className="space-y-1">
-          <label className="text-xs text-muted-foreground">Бонусный крит-кубик</label>
-          <input value={form.bonusCritDice} onChange={(e) => { setField("bonusCritDice", e.target.value); }}
-            className="w-full rounded border bg-background px-2 py-1.5 text-sm outline-none focus:ring-2 focus:ring-ring" placeholder="напр. 1d4" />
-        </div>
-        <div className="space-y-1">
-          <label className="text-xs text-muted-foreground">Масштабирующая характеристика</label>
-          <select value={form.scalingAttribute} onChange={(e) => { setField("scalingAttribute", e.target.value as StatAttribute | ""); }}
-            className="w-full rounded border bg-background px-2 py-1.5 text-sm outline-none">
-            {STAT_ATTRIBUTES.map((a) => <option key={a} value={a}>{STAT_LABELS[a]}</option>)}
-          </select>
-        </div>
-        <div className="space-y-1">
-          <label className="text-xs text-muted-foreground">Коэффициент масштабирования</label>
-          <input type="number" step="0.001" value={form.scalingCoefficient} onChange={(e) => { setField("scalingCoefficient", e.target.value); }}
-            className="w-full rounded border bg-background px-2 py-1.5 text-sm outline-none focus:ring-2 focus:ring-ring" placeholder="—" />
-        </div>
-        <div className="space-y-1">
-          <label className="text-xs text-muted-foreground">Восстановление сытости</label>
-          <input type="number" min={0} value={form.hungerRestored} onChange={(e) => { setField("hungerRestored", e.target.value); }}
-            className="w-full rounded border bg-background px-2 py-1.5 text-sm outline-none focus:ring-2 focus:ring-ring" placeholder="—" />
-        </div>
+        {!isConsumable && (
+          <div className="space-y-1">
+            <label className="text-xs text-muted-foreground">Требуемая характеристика</label>
+            <select value={form.requiredAttribute} onChange={(e) => { setField("requiredAttribute", e.target.value as StatAttribute | ""); }}
+              className="w-full rounded border bg-background px-2 py-1.5 text-sm outline-none">
+              {STAT_ATTRIBUTES.map((a) => <option key={a} value={a}>{STAT_LABELS[a]}</option>)}
+            </select>
+          </div>
+        )}
+        {isWeapon && (
+          <div className="space-y-1">
+            <label className="text-xs text-muted-foreground">Кубик урона</label>
+            <input value={form.damageDice} onChange={(e) => { setField("damageDice", e.target.value); }}
+              className="w-full rounded border bg-background px-2 py-1.5 text-sm outline-none focus:ring-2 focus:ring-ring" placeholder="напр. 1d6" />
+          </div>
+        )}
+        {isWeapon && (
+          <div className="space-y-1">
+            <label className="text-xs text-muted-foreground">Бонусный крит-кубик</label>
+            <input value={form.bonusCritDice} onChange={(e) => { setField("bonusCritDice", e.target.value); }}
+              className="w-full rounded border bg-background px-2 py-1.5 text-sm outline-none focus:ring-2 focus:ring-ring" placeholder="напр. 1d4" />
+          </div>
+        )}
+        {!isConsumable && (
+          <div className="space-y-1">
+            <label className="text-xs text-muted-foreground">Масштабирующая характеристика</label>
+            <select value={form.scalingAttribute} onChange={(e) => { setField("scalingAttribute", e.target.value as StatAttribute | ""); }}
+              className="w-full rounded border bg-background px-2 py-1.5 text-sm outline-none">
+              {STAT_ATTRIBUTES.map((a) => <option key={a} value={a}>{STAT_LABELS[a]}</option>)}
+            </select>
+          </div>
+        )}
+        {!isConsumable && (
+          <div className="space-y-1">
+            <label className="text-xs text-muted-foreground">Коэффициент масштабирования</label>
+            <input type="number" step="0.001" value={form.scalingCoefficient} onChange={(e) => { setField("scalingCoefficient", e.target.value); }}
+              className="w-full rounded border bg-background px-2 py-1.5 text-sm outline-none focus:ring-2 focus:ring-ring" placeholder="—" />
+          </div>
+        )}
         <div className="space-y-1">
           <label className="text-xs text-muted-foreground">Цена (бронза)</label>
           <input type="number" min={0} step="0.01" value={form.referencePrice} onChange={(e) => { setField("referencePrice", e.target.value); }}
             className="w-full rounded border bg-background px-2 py-1.5 text-sm outline-none focus:ring-2 focus:ring-ring" />
         </div>
-        <div className="flex items-center gap-2 pt-5">
-          <input type="checkbox" id="isTwoHanded" checked={form.isTwoHanded} onChange={(e) => { setField("isTwoHanded", e.target.checked); }} />
-          <label htmlFor="isTwoHanded" className="text-sm cursor-pointer">Двуручное</label>
-        </div>
+        {isWeapon && (
+          <div className="flex items-center gap-2 pt-5">
+            <input type="checkbox" id="isTwoHanded" checked={form.isTwoHanded} onChange={(e) => { setField("isTwoHanded", e.target.checked); }} />
+            <label htmlFor="isTwoHanded" className="text-sm cursor-pointer">Двуручное</label>
+          </div>
+        )}
       </div>
       <div className="space-y-1">
         <label className="text-xs text-muted-foreground">Описание</label>

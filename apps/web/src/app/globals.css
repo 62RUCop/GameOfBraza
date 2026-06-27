@@ -59,3 +59,14 @@
     @apply bg-background text-foreground;
   }
 }
+
+@layer utilities {
+  /* Скрывает полосу прокрутки, сохраняя возможность скролла (для узких экранов) */
+  .scrollbar-hide {
+    -ms-overflow-style: none; /* IE и старый Edge */
+    scrollbar-width: none; /* Firefox */
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none; /* Chrome, Safari, новый Edge */
+  }
+}

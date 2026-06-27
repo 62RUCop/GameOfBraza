@@ -124,35 +124,48 @@ export function SkillPickerDialog({
           </button>
         </div>
 
-        {/* Mode tabs — не показываем при прямом открытии редактора */}
-        {!editingSkill && (
-          <div className="flex border-b shrink-0">
+        {/* Вкладки режимов. При редактировании текущего скилла первой идёт
+            «Редактировать», но выбор/создание другого остаётся доступным. */}
+        <div className="flex border-b shrink-0">
+          {editingSkill && (
             <button
               type="button"
-              onClick={() => { setMode("pick"); }}
+              onClick={() => { setMode("edit"); }}
               className={cn(
                 "flex-1 px-4 py-2 text-xs font-medium transition-colors",
-                mode === "pick"
+                mode === "edit"
                   ? "border-b-2 border-primary text-primary"
                   : "text-muted-foreground hover:text-foreground",
               )}
             >
-              Выбрать из каталога
+              Редактировать
             </button>
-            <button
-              type="button"
-              onClick={() => { setMode("create"); }}
-              className={cn(
-                "flex-1 px-4 py-2 text-xs font-medium transition-colors",
-                mode === "create"
-                  ? "border-b-2 border-primary text-primary"
-                  : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              + Создать новый
-            </button>
-          </div>
-        )}
+          )}
+          <button
+            type="button"
+            onClick={() => { setMode("pick"); }}
+            className={cn(
+              "flex-1 px-4 py-2 text-xs font-medium transition-colors",
+              mode === "pick"
+                ? "border-b-2 border-primary text-primary"
+                : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            Выбрать из каталога
+          </button>
+          <button
+            type="button"
+            onClick={() => { setMode("create"); }}
+            className={cn(
+              "flex-1 px-4 py-2 text-xs font-medium transition-colors",
+              mode === "create"
+                ? "border-b-2 border-primary text-primary"
+                : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            + Создать новый
+          </button>
+        </div>
 
         {mode === "pick" && (
           <>
@@ -226,7 +239,7 @@ export function SkillPickerDialog({
             {...(filterType !== undefined ? { filterType } : {})}
             {...(mode === "edit" && editingSkill !== undefined ? { editingSkill } : {})}
             onSaved={onClose}
-            onCancel={editingSkill ? onClose : () => { setMode("pick"); }}
+            onCancel={mode === "edit" ? onClose : () => { setMode(editingSkill ? "edit" : "pick"); }}
           />
         )}
       </div>

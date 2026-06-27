@@ -289,7 +289,6 @@ export async function upsertItemTemplate(input: {
   bonusCritDice?: string;
   scalingAttribute?: string;
   scalingCoefficient?: number;
-  hungerRestored?: number;
   referencePrice: number;
   description?: string;
 }) {
@@ -307,7 +306,6 @@ export async function upsertItemTemplate(input: {
     bonusCritDice: input.bonusCritDice ?? null,
     scalingAttribute: (input.scalingAttribute ?? null) as never,
     scalingCoefficient: input.scalingCoefficient ?? null,
-    hungerRestored: input.hungerRestored ?? null,
     referencePrice: input.referencePrice,
     description: input.description ?? null,
   };

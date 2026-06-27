@@ -164,7 +164,7 @@ export function CharacterSheet({ character, activeTab, viewerRole, viewerId, rul
         <>
           {/* Tabs */}
           <div className="border-b">
-            <nav className="-mb-px flex gap-1 overflow-x-auto">
+            <nav className="-mb-px flex gap-1 overflow-x-auto scrollbar-hide">
               {TABS.map((tab) => (
                 <Link
                   key={tab.key}

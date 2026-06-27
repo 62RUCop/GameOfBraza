@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import Image from "next/image";
 import { cn } from "@gob/ui";
 import { unequipItem } from "@/actions/characters";
-import { EquipmentPickerDialog } from "./equipment-picker-dialog";
+import { EquipmentPickerDialog, type EditingItemInput } from "./equipment-picker-dialog";
 import type { FullCharacter, FullItemInstance } from "./character-sheet";
 
 interface Props {
@@ -58,7 +58,9 @@ const SLOT_LAYOUT: Record<string, {
 const SLOT_ORDER = Object.keys(SLOT_LAYOUT);
 
 export function TabEquipment({ character, canEdit }: Props) {
-  const [pickerSlot, setPickerSlot] = useState<string | null>(null);
+  // Открытый диалог: для занятого слота правим текущий предмет (item != null),
+  // для пустого — выбираем новый.
+  const [dialog, setDialog] = useState<{ slotKey: string; item: FullItemInstance | null } | null>(null);
   const [unequipPending, startUnequip] = useTransition();
 
   const equipped = new Map<string, FullItemInstance>();
@@ -82,7 +84,7 @@ export function TabEquipment({ character, canEdit }: Props) {
         </h3>
         {canEdit && (
           <p className="text-xs text-muted-foreground">
-            Нажмите на слот, чтобы выбрать предмет; на крестик — чтобы снять.
+            Нажмите на занятый слот, чтобы изменить предмет, на пустой — выбрать; на крестик — снять.
           </p>
         )}
 
@@ -122,7 +124,8 @@ export function TabEquipment({ character, canEdit }: Props) {
                   label={SLOT_LABELS[slotKey] ?? slotKey}
                   item={item}
                   canEdit={canEdit && !unequipPending}
-                  onOpen={() => { setPickerSlot(slotKey); }}
+                  onOpen={() => { setDialog({ slotKey, item: null }); }}
+                  onEdit={item ? () => { setDialog({ slotKey, item }); } : undefined}
                   onUnequip={item ? () => { handleUnequip(item); } : undefined}
                 />
               </div>
@@ -131,18 +134,52 @@ export function TabEquipment({ character, canEdit }: Props) {
         </div>
       </div>
 
-      {/* Picker dialog */}
-      {pickerSlot && (
+      {/* Picker / edit dialog */}
+      {dialog && (
         <EquipmentPickerDialog
           characterId={character.id}
-          slot={pickerSlot}
-          slotLabel={SLOT_LABELS[pickerSlot] ?? pickerSlot}
-          slotType={SLOT_TO_SLOT_TYPE[pickerSlot] ?? pickerSlot.replace("equipped_", "")}
-          onClose={() => { setPickerSlot(null); }}
+          slot={dialog.slotKey}
+          slotLabel={SLOT_LABELS[dialog.slotKey] ?? dialog.slotKey}
+          slotType={SLOT_TO_SLOT_TYPE[dialog.slotKey] ?? dialog.slotKey.replace("equipped_", "")}
+          {...(dialog.item ? { editingItem: buildEditingItem(dialog.item) } : {})}
+          onClose={() => { setDialog(null); }}
         />
       )}
     </>
   );
+}
+
+/** Собирает данные текущего экземпляра для формы редактирования: base — значения
+ *  шаблона (для diff в overrides), effective — то, что реально показывается. */
+function buildEditingItem(item: FullItemInstance): EditingItemInput {
+  const overrides = (item.overrides as Record<string, unknown> | null) ?? {};
+  const tmpl = item.template;
+  const str = (v: unknown): string =>
+    typeof v === "string" ? v : typeof v === "number" ? String(v) : "";
+
+  return {
+    id: item.id,
+    base: tmpl
+      ? {
+          name: tmpl.name,
+          tier: tmpl.tier,
+          weaponFamily: tmpl.weaponFamily,
+          damageDice: tmpl.damageDice,
+          bonusCritDice: tmpl.bonusCritDice,
+          description: tmpl.description,
+        }
+      : null,
+    effective: {
+      name: str(overrides.name ?? tmpl?.name),
+      // Без дефолта: пустой тир остаётся пустым, чтобы правка не штамповала Т1
+      // предметам, у которых тира не было.
+      tier: str(overrides.tier ?? tmpl?.tier),
+      weaponFamily: str(overrides.weaponFamily ?? tmpl?.weaponFamily),
+      damageDice: str(overrides.damageDice ?? tmpl?.damageDice),
+      bonusCritDice: str(overrides.bonusCritDice ?? tmpl?.bonusCritDice),
+      description: str(overrides.description ?? tmpl?.description),
+    },
+  };
 }
 
 function SlotCard({
@@ -150,12 +187,14 @@ function SlotCard({
   item,
   canEdit,
   onOpen,
+  onEdit,
   onUnequip,
 }: {
   label: string;
   item: FullItemInstance | null;
   canEdit: boolean;
   onOpen: () => void;
+  onEdit?: (() => void) | undefined;
   onUnequip?: (() => void) | undefined;
 }) {
   const overrides = item?.overrides as Record<string, unknown> | null | undefined;
@@ -184,11 +223,12 @@ function SlotCard({
         )}
       </div>
 
-      {/* Content / open picker */}
+      {/* Контент: у занятого слота клик открывает правку текущего предмета,
+          у пустого — выбор нового. */}
       <button
         type="button"
         disabled={!canEdit}
-        onClick={onOpen}
+        onClick={item && onEdit ? onEdit : onOpen}
         className={cn(
           "mt-1 text-left w-full",
           canEdit && "hover:opacity-80 cursor-pointer",
