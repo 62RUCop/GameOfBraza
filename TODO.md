@@ -134,8 +134,14 @@
     `20260627120000_add_telegram_link` (SQL вручную; применится `migrate deploy` на VM).
   - ⬜ Генерация кода в `/settings`, разрешение актора по `chat_id` в `@gob/core`,
     хэндлер `/start <код>` в боте.
-- ⬜ **Скелет `apps/bot`** — grammY, long-polling, `BOT_TOKEN` из env, healthcheck;
-  подключить в `turbo` и `pnpm` workspace.
+- ✅ **Скелет `apps/bot`** — grammY + long-polling, `BOT_TOKEN` из env (Zod-валидация,
+  `dotenv` подхватывает `apps/bot/.env`), HTTP-healthcheck `GET /health`
+  (`BOT_HEALTHCHECK_PORT`, по умолчанию 3001 — у long-polling своего порта нет), команды-
+  заглушки `/start` и `/ping`, корректное завершение по SIGINT/SIGTERM. Запуск через `tsx`
+  (`dev`=watch / `start`), как сиды `@gob/db`. Подключён в pnpm-workspace (`apps/*`) и turbo
+  (lint/typecheck/test зелёные на всех 6/6 пакетах). Плейсхолдер `BOT_TOKEN` в `.env.example`;
+  реальный токен — только в gitignore-`.env`. Проверено локально: бот вышел на связь как
+  `@GameOfBrazaBot`, `/health` → `200 {"status":"ok"}`. README — `apps/bot/README.md`.
 - ⬜ **MVP-команды игрока**: `/me` (сводка листа: HP/мана/ОД + расчётные максимумы),
   `/hp ±N` `/ap ±N` `/mana ±N` (инлайн-кнопки, **без clamp** — оверхил и отрицательные
   допустимы, выход за рамки = нейтральная подсветка), `/roll` (бой через `combat.ts`
