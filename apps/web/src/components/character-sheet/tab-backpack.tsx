@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { formatCurrency, toBronze, DEFAULT_RULE_CONFIG } from "@gob/rules";
+import { formatCurrency, toBronze } from "@gob/rules";
+import type { RuleConfig } from "@gob/rules";
 import type { FullCharacter } from "./character-sheet";
 import type { BackpackItemType, BackpackSlot } from "@gob/db";
 import { upsertBackpackSlot, clearBackpackSlot, updateCurrencyBalance } from "@/actions/characters";
@@ -10,6 +11,7 @@ import { cn } from "@gob/ui";
 interface Props {
   character: FullCharacter;
   canEdit: boolean;
+  ruleConfig: RuleConfig;
 }
 
 const ITEM_TYPE_LABELS: Record<BackpackItemType, string> = {
@@ -31,10 +33,10 @@ interface SlotDraft {
   description: string;
 }
 
-export function TabBackpack({ character, canEdit }: Props) {
+export function TabBackpack({ character, canEdit, ruleConfig }: Props) {
   const currency = character.currency;
   const balance = currency ? currency.balanceBronze : 0;
-  const fmt = formatCurrency(balance, DEFAULT_RULE_CONFIG);
+  const fmt = formatCurrency(balance, ruleConfig);
 
   const slots = character.backpackSlots;
   const slotMap = new Map(slots.map((s) => [s.slotIndex, s]));
@@ -47,6 +49,7 @@ export function TabBackpack({ character, canEdit }: Props) {
         balance={balance}
         fmt={fmt}
         canEdit={canEdit}
+        ruleConfig={ruleConfig}
       />
 
       {/* Backpack slots */}
@@ -233,16 +236,18 @@ function CurrencyCard({
   balance,
   fmt,
   canEdit,
+  ruleConfig,
 }: {
   characterId: string;
   balance: number;
   fmt: { gold: number; silver: number; bronze: number };
   canEdit: boolean;
+  ruleConfig: RuleConfig;
 }) {
   const [isPending, startTransition] = useTransition();
 
   function save(newFmt: { gold: number; silver: number; bronze: number }) {
-    const newBalance = toBronze(newFmt, DEFAULT_RULE_CONFIG);
+    const newBalance = toBronze(newFmt, ruleConfig);
     if (newBalance === balance) return;
     startTransition(async () => {
       await updateCurrencyBalance({ characterId, newBalanceBronze: newBalance, reason: "ручная правка" });

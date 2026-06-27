@@ -2,7 +2,8 @@
 
 import { useState, useTransition } from "react";
 import { cn } from "@gob/ui";
-import { attributePowerTier } from "@gob/rules";
+import { attributePowerTier, computeDerived } from "@gob/rules";
+import type { RuleConfig } from "@gob/rules";
 import type { FullCharacter, FullCharacterSkill } from "./character-sheet";
 import { removeCharacterSkill, useSkill } from "@/actions/characters";
 import { SkillPickerDialog } from "./skill-picker-dialog";
@@ -12,9 +13,10 @@ const SLOTS_PER_SPREAD = 6;
 interface Props {
   character: FullCharacter;
   canEdit: boolean;
+  ruleConfig: RuleConfig;
 }
 
-export function TabSkills({ character, canEdit }: Props) {
+export function TabSkills({ character, canEdit, ruleConfig }: Props) {
   const [pickerSlot, setPickerSlot] = useState<number | null>(null);
   const [editingSkill, setEditingSkill] = useState<FullCharacterSkill | null>(null);
   const [innatePickerOpen, setInnatePickerOpen] = useState(false);
@@ -25,8 +27,26 @@ export function TabSkills({ character, canEdit }: Props) {
 
   const attrs = character.attributes;
   const intValue = attrs?.intelligence ?? 0;
-  const maxSlots = Math.max(intValue, 1);
   const intTier = attributePowerTier(intValue);
+
+  // Максимум ячеек способностей — та же величина, что и на вкладке характеристик:
+  // расчёт по формуле (@gob/rules: slots = INT) либо ручной оверрайд из RuntimeState.
+  const rt = character.runtimeState;
+  const computedSlots = computeDerived(
+    {
+      str: attrs?.strength ?? 0,
+      dex: attrs?.dexterity ?? 0,
+      int: intValue,
+      spi: attrs?.spirit ?? 0,
+      end: attrs?.endurance ?? 0,
+      luc: attrs?.luck ?? 0,
+    },
+    {},
+    ruleConfig,
+  ).slots;
+  const effectiveSlots =
+    rt?.slotsManualOverride && rt.slotsOverride != null ? rt.slotsOverride : computedSlots;
+  const maxSlots = Math.max(effectiveSlots, 1);
 
   const innateSkill = character.characterSkills.find((cs) => cs.skill.skillType === "innate") ?? null;
   const slotSkills = character.characterSkills.filter(
@@ -45,7 +65,6 @@ export function TabSkills({ character, canEdit }: Props) {
   const leftSlots = currentSix.slice(0, 3);
   const rightSlots = currentSix.slice(3, 6);
 
-  const rt = character.runtimeState;
   const currentMana = rt?.currentMana ?? 0;
   const manaMax = rt?.manaMaxComputed ?? 0;
   const currentAp = rt?.currentAp ?? 0;

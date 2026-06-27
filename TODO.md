@@ -46,6 +46,10 @@
 
 ## 🎯 Векторы развития
 
+### 0. Баги и исправления
+- ✅ **Ячейки способностей** Максимум ячеек скиллов теперь переносится из вкладки характеристик на вкладку скиллов: `tab-skills` считает лимит через `computeDerived` (`@gob/rules`) и уважает ручной оверрайд `slotsManualOverride`/`slotsOverride` из `RuntimeState`.
+- ✅ **Коэффиценты валют** silverToBronze и goldToSilver теперь работают на вкладке Рюкзак: реальный `RuleConfig` прокидывается в `tab-backpack` (`formatCurrency`/`toBronze`) вместо захардкоженного `DEFAULT_RULE_CONFIG`.
+
 ### 1. Автоматизация развёртывания «в один файл» ✅ — приоритет
 Цель: на чистом сервере запуск одного скрипта поднимает всё и сразу даёт рабочий сайт.
 - ✅ `Dockerfile` для веба (`apps/web/Dockerfile`) — multi-stage (`deps`/`builder`/`migrator`/`runner`), `output: "standalone"` + `outputFileTracingRoot` в `next.config.ts`.

@@ -114,9 +114,9 @@ export function CharacterSheet({ character, activeTab, viewerRole, viewerId, rul
       case "equipment":
         return <TabEquipment character={character} canEdit={canEdit} />;
       case "skills":
-        return <TabSkills character={character} canEdit={canEdit} />;
+        return <TabSkills character={character} canEdit={canEdit} ruleConfig={ruleConfig} />;
       case "backpack":
-        return <TabBackpack character={character} canEdit={canEdit} />;
+        return <TabBackpack character={character} canEdit={canEdit} ruleConfig={ruleConfig} />;
       case "reputation":
         return <TabReputation character={character} canEdit={canEdit} />;
       case "notes":
