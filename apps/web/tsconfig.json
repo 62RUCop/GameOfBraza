@@ -4,6 +4,9 @@
     "declaration": false,
     "declarationMap": false,
     "composite": false,
+    // WebWorker нужен для типов service worker в src/app/sw.ts (ServiceWorkerGlobalScope).
+    // Конфликты глобалей DOM/WebWorker гасит skipLibCheck из базового пресета.
+    "lib": ["ES2022", "DOM", "DOM.Iterable", "WebWorker"],
     "plugins": [
       {
         "name": "next"

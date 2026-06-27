@@ -122,7 +122,7 @@ Frontend: Next.js 15 + React 19, Tailwind + shadcn/ui (Radix), TanStack Query, Z
 Backend: Next.js App Router — Server Actions (`src/actions/*`) + Route Handlers (`src/app/api/*`). БД: PostgreSQL + Prisma 6.
 Auth: Auth.js / NextAuth v5 — Credentials (email+пароль, bcryptjs), JWT-сессии, роль в токене, защита через `middleware.ts`. Монорепо: pnpm workspaces + Turborepo.
 
-**Ещё не реализовано (план, не выдавай за готовое):** PWA (есть только `manifest` в метаданных, без `serwist`/`next-pwa` — план в `MOBILE-APP.md`); загрузка картинок в S3/R2 (`appearanceImage` пока просто строка, presigned-upload нет).
+**Ещё не реализовано (план, не выдавай за готовое):** загрузка картинок в S3/R2 (`appearanceImage` пока просто строка, presigned-upload нет). PWA-каркас «установка + офлайн-оболочка» реализован через Serwist (`MOBILE-APP.md`); вне объёма пока — офлайн-чтение данных персонажа.
 
 ---
 

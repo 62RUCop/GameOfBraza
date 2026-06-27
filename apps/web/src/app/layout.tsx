@@ -6,7 +6,14 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "Game of Braza",
   description: "Цифровая анкета персонажа",
-  manifest: "/manifest.json",
+  applicationName: "Game of Braza",
+  // <link rel="manifest"> Next добавляет сам из app/manifest.ts; иконка/apple-touch —
+  // из app/icon.png и app/apple-icon.png. Здесь — только iOS-мета для standalone-режима.
+  appleWebApp: {
+    capable: true,
+    title: "Game of Braza",
+    statusBarStyle: "default",
+  },
 };
 
 export const viewport: Viewport = {

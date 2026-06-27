@@ -1,8 +1,12 @@
 # MOBILE-APP.md — план PWA (мобильное приложение)
 
 Роадмап превращения веб-анкеты в устанавливаемое мобильное приложение через **PWA**.
-Дополняет `TODO.md` (п.7 «PWA и офлайн») и `CLAUDE.md` (правила). Это **план**, а не
-отчёт: все пункты реализации помечены ⬜ — кода ещё нет.
+Дополняет `TODO.md` (п.7 «PWA и офлайн») и `CLAUDE.md` (правила).
+
+> **Статус: первая итерация («установка + офлайн-оболочка») реализована** ✅.
+> Манифест, иконки, service worker (Serwist), офлайн-фолбэк и iOS-мета на месте; собрано
+> и проверено отдачей роутов на production-сервере. Полная установка на устройство и
+> Lighthouse-проверка — на Ubuntu-VM / реальном телефоне (см. «Верификация»).
 
 Легенда: ✅ готово · 🚧 частично / в работе · ⬜ запланировано
 
@@ -23,12 +27,15 @@
 
 ### Текущее состояние
 - ✅ `viewport` + `themeColor: "#0f172a"` заданы в `apps/web/src/app/layout.tsx`.
-- 🚧 В метаданных есть `manifest: "/manifest.json"` (`layout.tsx`), **но самого файла нет** —
-  ссылка отдаёт 404. В `apps/web/public/` лежит только `character-silhouette.svg`.
-- ⬜ Нет `serwist`/`next-pwa`, service worker, PWA-иконок (192/512/maskable/apple-touch).
-- ⚙️ `apps/web/next.config.ts` использует `output: "standalone"` + `outputFileTracingRoot` +
-  `transpilePackages` — интеграцию service worker нужно **скомпоновать** с этим конфигом,
-  не затирая его.
+- ✅ Манифест отдаётся через `apps/web/src/app/manifest.ts` (`/manifest.webmanifest`);
+  битая ручная ссылка `manifest: "/manifest.json"` убрана.
+- ✅ `serwist` + `@serwist/next` подключены; service worker — `apps/web/src/app/sw.ts`
+  (собирается в `public/sw.js`, в dev отключён). PWA-иконки сгенерированы из `icon_src.png`
+  скриптом `apps/web/scripts/generate-icons.mjs` (`sharp`): `public/icons/*`, плюс favicon и
+  apple-touch через файловые конвенции App Router (`src/app/icon.png`, `src/app/apple-icon.png`).
+- ✅ Service worker **скомпонован** с `output: "standalone"` через `withSerwist` в
+  `apps/web/next.config.ts` — существующие `outputFileTracingRoot` и `transpilePackages`
+  сохранены. Генерируемый `public/sw.js` в `.gitignore`.
 
 ---
 
@@ -58,7 +65,7 @@
 
 ## Этапы реализации
 
-### 1. Web App Manifest ⬜
+### 1. Web App Manifest ✅
 - Создать `apps/web/src/app/manifest.ts` — типизированный `MetadataRoute.Manifest`
   (идиоматично для App Router; отдаётся как `/manifest.webmanifest`, `<link rel="manifest">`
   Next добавляет автоматически).
@@ -68,7 +75,11 @@
 - **Убрать** ручную строку `manifest: "/manifest.json"` из `layout.tsx`, чтобы не было
   дубля и битой ссылки на несуществующий файл.
 
-### 2. Иконки ⬜
+### 2. Иконки ✅
+> Способ генерации зафиксирован: скрипт `apps/web/scripts/generate-icons.mjs` на `sharp`
+> (`pnpm --filter @gob/web icons`). Источник — `public/icon_src.png`. maskable кладётся на
+> белый фон с логотипом в safe-zone (80%); apple-touch — full-bleed на белом (iOS не уважает
+> прозрачность). Исходник `sharp` уже был в воркспейсе (транзитивно от Next), добавлен явно.
 - Сгенерировать из `apps/web/public/character-silhouette.svg` (или простого брендового знака):
   `192×192`, `512×512`, maskable-`512×512`, `apple-touch-icon 180×180`, favicon.
 - Сложить в `apps/web/public/icons/`, прописать в манифесте (с `purpose: "maskable"` для
@@ -76,7 +87,7 @@
 - Под-шаг: способ генерации PNG. В репо нет инструмента ресайза — либо одноразовый скрипт
   на `sharp`, либо ручной экспорт из SVG. Зафиксировать выбранный способ.
 
-### 3. Service Worker (Serwist) ⬜
+### 3. Service Worker (Serwist) ✅
 - Добавить зависимости `serwist` + `@serwist/next`.
 - Обернуть `apps/web/next.config.ts` в `withSerwist`, **сохранив** существующие
   `output: "standalone"`, `outputFileTracingRoot`, `transpilePackages`.
@@ -87,30 +98,45 @@
   (file tracing копирует `public/`); при необходимости убедиться, что путь SW корректен
   за пределами dev.
 
-### 4. iOS / мета установки ⬜
+### 4. iOS / мета установки ✅ (splash — отложен)
 - Добавить в `layout.tsx` метадату `appleWebApp` (`capable`, `statusBarStyle`, `title`)
   и `apple-touch-icon`.
 - Splash-экраны iOS — опционально (nice-to-have, можно отложить).
 
-### 5. Стратегия кэширования (только оболочка) ⬜
-- **Precache:** ассеты сборки, UI-оболочка, офлайн-фолбэк-страница, иконки, манифест.
-- **Навигации** → `NetworkFirst` с офлайн-фолбэком.
-- **Статика** (JS/CSS/шрифты/картинки) → `StaleWhileRevalidate` / `CacheFirst`.
-- **Данные и Server Actions (POST)** → `NetworkOnly`, **НЕ кэшировать**. Явно исключить
-  POST/Server-Action-запросы, а также сессию/auth из любого кэша.
+### 5. Стратегия кэширования (только оболочка) ✅
+- **Precache:** ассеты сборки + офлайн-фолбэк-страница (`/~offline` попала в прекэш — проверено).
+- **Статика** (`/_next/static`) → `CacheFirst`; картинки/шрифты/стили → `StaleWhileRevalidate`.
+- **Навигации, RSC, данные, Server Actions** → `NetworkOnly`. **Отклонение от плана осознанное:**
+  вместо `NetworkFirst` для навигаций выбран `NetworkOnly` + офлайн-фолбэк, чтобы **никогда** не
+  отдавать устаревшие игровые значения из кэша (принцип данных ниже + золотое правило 1). Офлайн-
+  чтение данных персонажа вне объёма этой итерации, поэтому кэшировать страницы незачем.
 
-### 6. Офлайн-фолбэк ⬜
-- Простая страница-заглушка (`apps/web/src/app/~offline/page.tsx` или аналог),
-  занесена в precache, отдаётся при недоступной сети. Строки — через i18next (локаль `ru`).
+### 6. Офлайн-фолбэк ✅
+- `apps/web/src/app/~offline/page.tsx` — статическая заглушка, занесена в precache, отдаётся
+  при навигации без сети. **Отклонение:** строки захардкожены по-русски (как `sign-in/page.tsx`
+  и прочие страницы — `useTranslation` в проекте пока не используется нигде), а не через i18next.
+- `middleware.ts`: `/~offline` добавлен в `PUBLIC_PATHS`, а статика PWA (`/sw.js`,
+  `/manifest.webmanifest`, иконки) исключена из `matcher` — иначе неавторизованный запрос к
+  ним редиректило на `/sign-in`, ломая установку/регистрацию SW.
 
-### 7. Обновление документации (по факту реализации) ⬜
-- `TODO.md` п.7 «PWA и офлайн» → 🚧 / ✅.
-- `CLAUDE.md` (строка про «ещё не реализовано») — снять упоминание, что PWA нет.
-- Отметить пункты этого файла соответствующими статусами.
+### 7. Обновление документации (по факту реализации) ✅
+- `TODO.md` п.7 «PWA и офлайн» → 🚧 (первая итерация готова, офлайн-чтение — впереди).
+- `CLAUDE.md` (строка про «ещё не реализовано») — упоминание про отсутствие PWA снято.
+- Пункты этого файла отмечены соответствующими статусами.
 
 ---
 
 ## Верификация
+
+> **Выполнено на Windows-dev:** `pnpm lint`/`typecheck`/`test` — зелёные; `pnpm build`
+> компилирует и генерирует все статические страницы, Serwist собирает `public/sw.js`
+> (`/~offline` в прекэше — проверено); production-сервер отдаёт `/manifest.webmanifest`
+> (`application/manifest+json`), `/sw.js`, `/~offline`, иконки (200), а `/characters`
+> по-прежнему редиректит на `/sign-in` (auth не сломан). `<head>` содержит `rel="manifest"`,
+> `theme-color`, apple-touch-icon, `mobile-web-app-capable`.
+> **Caveat Windows:** шаг `output: "standalone"` падает на `EPERM: symlink` (Windows требует
+> прав на symlink) — это не связано с PWA и не воспроизводится в Docker/на Ubuntu-VM.
+> **Осталось проверить вне Windows-dev:**
 
 1. `pnpm lint` и `pnpm typecheck` (типы Serwist) — зелёные.
 2. `pnpm build`, затем `pnpm --filter @gob/web start`; открыть `http://localhost:3000`.
