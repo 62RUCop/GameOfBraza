@@ -94,8 +94,29 @@ model Account {
   characters        Character[]
   sessions          Session[]
   auths             AuthAccount[]
+  telegramLink      TelegramLink?
 
   @@map("accounts")
+}
+
+/// Привязка Telegram-чата к аккаунту для бота игрока.
+/// Поток: игрок генерирует одноразовый `linkCode` в настройках → шлёт боту `/start <код>` →
+/// бот находит запись по коду (не истёкшему), проставляет `telegramChatId`/`linkedAt` и гасит код.
+/// Один аккаунт ↔ один чат (оба поля уникальны). Soft-delete по конвенции (`deletedAt`).
+model TelegramLink {
+  id                String    @id @default(cuid())
+  accountId         String    @unique
+  telegramChatId    String?   @unique
+  linkCode          String?   @unique
+  linkCodeExpiresAt DateTime?
+  linkedAt          DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  deletedAt         DateTime?
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@map("telegram_links")
 }
 
 model Session {
