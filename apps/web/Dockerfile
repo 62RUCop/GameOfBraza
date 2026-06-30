@@ -21,7 +21,7 @@ ENV PNPM_HOME="/pnpm" \
 RUN apt-get update -y \
     && apt-get install -y --no-install-recommends openssl ca-certificates \
     && rm -rf /var/lib/apt/lists/*
-RUN corepack enable
+RUN npm install -g pnpm@9.15.4 --no-fund --no-audit
 WORKDIR /app
 
 # ─── deps: установка зависимостей (слой кэшируется, пока не менялись манифесты) ──
