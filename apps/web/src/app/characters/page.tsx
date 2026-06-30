@@ -53,7 +53,7 @@ export default async function CharactersPage() {
                 <div className="min-w-0">
                   <h2 className="truncate font-semibold">{char.name}</h2>
                   <p className="text-sm text-muted-foreground">
-                    {char.race?.name ?? "Раса не указана"}
+                    {char.race?.name ?? char.raceName ?? "Раса не указана"}
                     {char.isNpc && (
                       <span className="ml-2 rounded bg-muted px-1.5 py-0.5 text-xs">NPC</span>
                     )}

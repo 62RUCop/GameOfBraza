@@ -76,7 +76,7 @@ const EMPTY_ITEM: GoBItem = { name: "", desc: "" };
 
 function getInstName(inst: FullCharacter["equipmentSlots"][0]): string {
   const ov = inst.overrides as Record<string, unknown> | null;
-  return (ov?.customName as string | undefined) ?? inst.template?.name ?? "";
+  return (ov?.name as string | undefined) ?? inst.template?.name ?? "";
 }
 
 function getInstDesc(inst: FullCharacter["equipmentSlots"][0]): string {
@@ -324,7 +324,7 @@ export function parseGoBImport(json: string): ImportData {
 
   const backpack: ImportData["backpack"] = (parsed.backpack ?? [])
     .slice(0, 6)
-    .map((item, idx) => ({ slotIndex: idx, name: item.name.trim(), desc: item.desc.trim() }))
+    .map((item, idx) => ({ slotIndex: idx + 1, name: item.name.trim(), desc: item.desc.trim() }))
     .filter((item) => item.name);
 
   const combat = parsed.combat;

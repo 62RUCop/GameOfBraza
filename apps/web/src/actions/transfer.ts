@@ -31,11 +31,16 @@ export async function importCharacterFromJSON(
   const manaMaxOverride = data.manaBonus !== 0 ? derived.manaMax + data.manaBonus : null;
   const apMaxOverride = data.apBonus !== 0 ? derived.apMax + data.apBonus : null;
 
+  const matchedRace = data.raceName
+    ? await prisma.race.findFirst({ where: { name: data.raceName, deletedAt: null } })
+    : null;
+
   const character = await prisma.$transaction(async (tx) => {
     const char = await tx.character.create({
       data: {
         ownerId: session.user.id,
         name: data.name,
+        raceId: matchedRace?.id ?? null,
         raceName: data.raceName,
         groupName: data.groupName,
         quenta: data.quenta,
@@ -87,7 +92,7 @@ export async function importCharacterFromJSON(
         data: {
           characterId: char.id,
           location: eq.location as ItemLocation,
-          overrides: { customName: eq.name, description: eq.desc },
+          overrides: { name: eq.name, description: eq.desc },
         },
       });
     }
