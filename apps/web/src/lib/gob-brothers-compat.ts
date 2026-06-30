@@ -81,7 +81,7 @@ function getInstName(inst: FullCharacter["equipmentSlots"][0]): string {
 
 function getInstDesc(inst: FullCharacter["equipmentSlots"][0]): string {
   const ov = inst.overrides as Record<string, unknown> | null;
-  return (ov?.description as string | undefined) ?? "";
+  return (ov?.description as string | undefined) ?? inst.template?.description ?? "";
 }
 
 export function exportToGoBrothers(character: FullCharacter, ruleConfig: RuleConfig): GoBCharacter {
@@ -103,9 +103,19 @@ export function exportToGoBrothers(character: FullCharacter, ruleConfig: RuleCon
 
   const racePart = character.raceName ?? character.race?.name ?? null;
   const groupPart = character.groupName ?? character.group?.name ?? null;
-  const descParts: string[] = [];
-  if (racePart) descParts.push(`Раса: ${racePart}`);
-  if (groupPart) descParts.push(`Группировка: ${groupPart}`);
+
+  // Build lore: race/group header + game narrative fields
+  const loreParts: string[] = [];
+  const raceGroupParts: string[] = [];
+  if (racePart) raceGroupParts.push(`Раса: ${racePart}`);
+  if (groupPart) raceGroupParts.push(`Группировка: ${groupPart}`);
+  if (character.questProgressStage) raceGroupParts.push(`Стадия квеста: ${String(character.questProgressStage)}`);
+  if (raceGroupParts.length > 0) loreParts.push(raceGroupParts.join(" | "));
+  if (character.quenta?.trim()) loreParts.push(`## Квента\n${character.quenta.trim()}`);
+  if (character.mainQuest?.trim()) loreParts.push(`## Основной квест\n${character.mainQuest.trim()}`);
+  if (character.buffs?.trim()) loreParts.push(`## Бафы\n${character.buffs.trim()}`);
+  if (character.debuffs?.trim()) loreParts.push(`## Дебафы\n${character.debuffs.trim()}`);
+  if (character.playerNotes?.trim()) loreParts.push(`## Заметки\n${character.playerNotes.trim()}`);
 
   const eqByLocation = new Map(character.equipmentSlots.map((i) => [i.location as string, i]));
 
@@ -119,7 +129,7 @@ export function exportToGoBrothers(character: FullCharacter, ruleConfig: RuleCon
 
   const backpack: GoBItem[] = character.backpackSlots.slice(0, 6).map((slot) => ({
     name: slot.itemName,
-    desc: [slot.description, slot.quantity > 1 ? `×${slot.quantity.toString()}` : ""]
+    desc: [slot.description, slot.quantity > 1 ? `x${slot.quantity.toString()}` : ""]
       .filter(Boolean)
       .join(" "),
   }));
@@ -145,8 +155,8 @@ export function exportToGoBrothers(character: FullCharacter, ruleConfig: RuleCon
     schemaVersion: 1,
     source: "GameOfBraza",
     name: character.name,
-    description: descParts.join(" | "),
-    lore: character.quenta ?? "",
+    description: raceGroupParts.join(" | "),
+    lore: loreParts.join("\n\n"),
     stats: { str, dex, int, spi, end, luck: luc },
     combat: {
       hp: rt?.currentHp ?? derived.hpMax,
@@ -220,11 +230,23 @@ const GoBImportSchema = z.object({
   spells: z.array(GoBSpellSchema).optional(),
 });
 
+export interface ImportSpell {
+  name: string;
+  description: string;
+  tier: number;
+  manaCost: number;
+  icon: string;
+}
+
 export interface ImportData {
   name: string;
   raceName: string | null;
   groupName: string | null;
   quenta: string | null;
+  questProgressStage: number;
+  mainQuest: string | null;
+  buffs: string | null;
+  debuffs: string | null;
   playerNotes: string | null;
   stats: { str: number; dex: number; int: number; spi: number; end: number; luc: number };
   currentHp: number;
@@ -235,34 +257,51 @@ export interface ImportData {
   apBonus: number;
   equipment: { location: string; name: string; desc: string }[];
   backpack: { slotIndex: number; name: string; desc: string }[];
+  spells: ImportSpell[];
 }
 
 export function parseGoBImport(json: string): ImportData {
   const parsed = GoBImportSchema.parse(JSON.parse(json) as unknown);
 
-  // Parse race/group from description
+  // description carries race/group/stage header (parsed below from lore first line)
+
+  // lore → race/group header + named sections
+  const lore = parsed.lore ?? "";
   let raceName: string | null = null;
   let groupName: string | null = null;
-  const desc = parsed.description ?? "";
-  const raceMatch = /Раса:\s*([^|]+)/.exec(desc);
-  if (raceMatch?.[1]) raceName = raceMatch[1].trim();
-  const groupMatch = /Группировка:\s*([^|]+)/.exec(desc);
-  if (groupMatch?.[1]) groupName = groupMatch[1].trim();
 
-  // Collect unresolvable data → playerNotes
-  const noteParts: string[] = [];
-  if (desc && !raceName && !groupName && desc.trim()) {
-    noteParts.push(`Описание (импорт): ${desc.trim()}`);
+  // First non-section line may carry "Раса: X | Группировка: Y"
+  const firstLine = lore.split("\n")[0] ?? "";
+  let questProgressStage = 0;
+  if (!firstLine.startsWith("##")) {
+    const raceMatch = /Раса:\s*([^|]+)/.exec(firstLine);
+    if (raceMatch?.[1]) raceName = raceMatch[1].trim();
+    const groupMatch = /Группировка:\s*([^|]+)/.exec(firstLine);
+    if (groupMatch?.[1]) groupName = groupMatch[1].trim();
+    const stageMatch = /Стадия квеста:\s*(\d+)/.exec(firstLine);
+    if (stageMatch?.[1]) questProgressStage = parseInt(stageMatch[1], 10);
   }
 
-  const spells = parsed.spells ?? [];
-  if (spells.length > 0) {
-    const lines = spells.map(
-      (s) =>
-        `- ${s.name}${s.desc ? `: ${s.desc}` : ""} (${s.spec}, ур.${String(s.level)}, мана: ${String(s.mana)})`,
-    );
-    noteParts.push(`Скиллы из GameOfBrothers:\n${lines.join("\n")}`);
+  function extractSection(text: string, heading: string): string | null {
+    const re = new RegExp(`##\\s*${heading}\\s*\\n([\\s\\S]*?)(?=\\n##|$)`, "i");
+    const m = re.exec(text);
+    return m?.[1] ? m[1].trim() || null : null;
   }
+
+  const quenta = extractSection(lore, "Квента");
+  const mainQuest = extractSection(lore, "Основной квест");
+  const buffs = extractSection(lore, "Бафы");
+  const debuffs = extractSection(lore, "Дебафы");
+
+  const playerNotes = extractSection(lore, "Заметки");
+
+  const spells: ImportSpell[] = (parsed.spells ?? []).map((s) => ({
+    name: s.name.trim() || "Без названия",
+    description: [s.desc.trim(), s.spec !== "buff" ? `(${s.spec})` : ""].filter(Boolean).join(" "),
+    tier: Math.max(0, Math.min(5, s.level)),
+    manaCost: s.mana,
+    icon: s.icon,
+  }));
 
   const rawStats = parsed.stats;
   const stats = {
@@ -294,8 +333,12 @@ export function parseGoBImport(json: string): ImportData {
     name: parsed.name?.trim() || "Импортированный персонаж",
     raceName,
     groupName,
-    quenta: parsed.lore?.trim() || null,
-    playerNotes: noteParts.length > 0 ? noteParts.join("\n\n") : null,
+    quenta,
+    questProgressStage,
+    mainQuest,
+    buffs,
+    debuffs,
+    playerNotes,
     stats,
     currentHp: combat?.hp ?? 0,
     currentMana: combat?.mp ?? 0,
@@ -305,5 +348,6 @@ export function parseGoBImport(json: string): ImportData {
     apBonus: combat?.apBonus ?? 0,
     equipment,
     backpack,
+    spells,
   };
 }

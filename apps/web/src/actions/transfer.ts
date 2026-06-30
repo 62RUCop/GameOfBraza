@@ -39,6 +39,10 @@ export async function importCharacterFromJSON(
         raceName: data.raceName,
         groupName: data.groupName,
         quenta: data.quenta,
+        questProgressStage: data.questProgressStage,
+        mainQuest: data.mainQuest,
+        buffs: data.buffs,
+        debuffs: data.debuffs,
         playerNotes: data.playerNotes,
         unallocatedPoints: 0,
       },
@@ -98,6 +102,27 @@ export async function importCharacterFromJSON(
           description: bp.desc || null,
           quantity: 1,
         },
+      });
+    }
+
+    for (const spell of data.spells) {
+      // Reuse an existing non-deleted skill with the same name, or create a new one
+      let skill = await tx.skill.findFirst({
+        where: { name: spell.name, deletedAt: null },
+      });
+      skill ??= await tx.skill.create({
+        data: {
+          name: spell.name,
+          description: spell.description || null,
+          skillType: "acquired",
+          tier: spell.tier,
+          manaCost: spell.manaCost || null,
+          icon: spell.icon !== "default" ? spell.icon : null,
+          occupiesSlot: true,
+        },
+      });
+      await tx.characterSkill.create({
+        data: { characterId: char.id, skillId: skill.id },
       });
     }
 
