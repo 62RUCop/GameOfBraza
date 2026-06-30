@@ -63,6 +63,12 @@ if [ -n "$ADMIN_EMAIL_VAL" ] && [ -z "$ADMIN_PASS_VAL" ]; then
   fi
   set_env ADMIN_PASSWORD "$GENERATED_ADMIN_PASS"
   ok "Сгенерирован ADMIN_PASSWORD для $ADMIN_EMAIL_VAL"
+  echo
+  echo "  ┌─ Учётка администратора (сохранена в ${ENV_FILE}) ─┐"
+  echo "  │  email:    ${ADMIN_EMAIL_VAL}"
+  echo "  │  password: ${GENERATED_ADMIN_PASS}"
+  echo "  └────────────────────────────────────────────────────┘"
+  echo
 fi
 
 # ─── 4. Сборка и запуск ─────────────────────────────────────────────────────────
