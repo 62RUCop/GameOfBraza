@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-Цифровая анкета персонажа для настольной RPG-системы. Полное ТЗ — в `docs/TZ.md` (читай его при работе над любой игровой механикой). Дорожная карта (что сделано и векторы развития) — в `TODO.md`. План PWA / мобильного приложения — в `MOBILE-APP.md`. Этот файл — правила, которые действуют всегда.
+Цифровая анкета персонажа для настольной RPG-системы. Полное ТЗ — в `docs/TZ.md` (читай его при работе над любой игровой механикой). Дорожная карта (что сделано и векторы развития) — в `TODO.md`. План PWA / мобильного приложения — в `MOBILE-APP.md`. Этот файл — правила, которые действуют всегда. Альтернативный проект, для вдохновения коллаборации "C:\GameOfBrothers".
 
 > Перед задачей сверяйся с `TODO.md`, а по факту выполнения/старта пункта — обновляй его статус (✅/🚧/⬜). Не дублируй в этот файл то, что место в `TODO.md`: здесь правила, там — план.
 
@@ -51,8 +51,9 @@ docs/
 
 - `tiers.ts` — `TIER_TO_DIE` ({0:4,1:6,2:12,3:20,4:60,5:100}), `attributePowerTier` (cap 4), `classIndex` (пороги).
 - `derived.ts` — `computeDerived`: hpMax=str·hpPerStr, manaMax=spi·manaPerSpi, apMax=end·apPerEnd, slots=int, critBonus=⌊luc/lucCritStep⌋.
-- `combat.ts` — `checkHit` (порог = `dieFaces−1−dex`), `computeDamage`.
-- `bubble.ts` — `bubblePersistChance`, `resolveBubbleHit` (D100).
+- `dice.ts` — `parseDiceSpec` (нотация `NdM`/`dM`/`M`), `attributeCheckOutcome` (1=крит-успех, ≤стат=успех, макс грань=крит-провал).
+- `combat.ts` — `checkHit` (попадание = `dieFaces−1−dex`, крит = `dieFaces−critBonus`, крит без попадания = критпромах), `computeDamage`, `scalingDamageBonus` (⌊stat·coef⌋).
+- `bubble.ts` — `bubblePersistChance`, `resolveBubbleHit` (D100, форма по `persist_chance`, граница `>`), `resolveBubbleRoll` (форма по зарядам для `/roll BBL`, граница `≥`, заряды−1 мин 1).
 - `reputation.ts` — `reputationLabel`, `reputationPriceMultiplier`.
 - `currency.ts` — `formatCurrency`/`toBronze` (1 золото = 10 серебра = 100 бронзы).
 - `satiety.ts` — `satietyMin`/`satietyMax`, `locationTransitionDamage`.

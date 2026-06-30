@@ -20,6 +20,7 @@ import { TabBackpack } from "./tab-backpack";
 import { TabReputation } from "./tab-reputation";
 import { TabNotes } from "./tab-notes";
 import { useSheetLayout } from "../use-sheet-layout";
+import { TransferModal } from "./transfer-modal";
 
 export type FullCharacterSkill = CharacterSkill & {
   skill: Skill;
@@ -136,6 +137,7 @@ export function CharacterSheet({ character, activeTab, viewerRole, viewerId, rul
           </p>
         </div>
         <div className="flex items-center gap-3">
+          <TransferModal character={character} ruleConfig={ruleConfig} />
           {canDelete && (
             <button
               onClick={() => { setConfirmDelete(true); setDeleteError(null); }}

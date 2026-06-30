@@ -8,6 +8,8 @@ loadEnv();
 const EnvSchema = z.object({
   // Токен от @BotFather. Берётся только из окружения — в репозитории его нет (§ секреты).
   BOT_TOKEN: z.string().min(1, "BOT_TOKEN не задан — скопируй из .env.example и заполни"),
+  // Та же БД, что у веба (путь A): бот ходит к ней напрямую через @gob/db.
+  DATABASE_URL: z.string().min(1, "DATABASE_URL не задан — бот ходит к той же БД, что и веб"),
   // long-polling не открывает свой HTTP-порт, поэтому healthcheck слушает отдельный порт.
   BOT_HEALTHCHECK_PORT: z.coerce.number().int().positive().default(3001),
 });

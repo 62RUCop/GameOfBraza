@@ -1,5 +1,5 @@
 import { describe, expect, it, test } from "vitest";
-import { checkHit, computeDamage, type WeaponCard } from "../combat.js";
+import { checkHit, computeDamage, scalingDamageBonus, type WeaponCard } from "../combat.js";
 
 describe("checkHit", () => {
   // d20 (dieFaces=20), DEX=3 → threshold = 20 − 1 − 3 = 16
@@ -36,6 +36,37 @@ describe("checkHit", () => {
     expect(checkHit(2, 4, 0).hit).toBe(false);
     expect(checkHit(3, 4, 0).hit).toBe(true);
     expect(checkHit(4, 4, 0)).toEqual({ hit: true, crit: true, critFail: false });
+  });
+
+  it("critBonus default 0 → crit only on the natural max (backward compatible)", () => {
+    expect(checkHit(19, 20, 3, 0).crit).toBe(false);
+    expect(checkHit(20, 20, 3, 0).crit).toBe(true);
+  });
+
+  it("crit threshold lowers by 1 per critBonus point (dieFaces − critBonus)", () => {
+    // d20, critBonus 1 → crit threshold = 20 − 1 = 19, so 19 and 20 crit
+    expect(checkHit(18, 20, 3, 1).crit).toBe(false);
+    expect(checkHit(19, 20, 3, 1).crit).toBe(true);
+    // critBonus 3 → threshold 17
+    expect(checkHit(17, 20, 3, 3).crit).toBe(true);
+    expect(checkHit(16, 20, 3, 3).crit).toBe(false);
+  });
+
+  it("high critBonus + low DEX can crit without hitting (critical miss)", () => {
+    // d20, DEX 0 → hit threshold = 19; critBonus 5 → crit threshold = 15
+    // roll 16: crit (≥15) but not a hit (<19) → caller renders «критический промах»
+    const r = checkHit(16, 20, 0, 5);
+    expect(r.crit).toBe(true);
+    expect(r.hit).toBe(false);
+  });
+});
+
+describe("scalingDamageBonus", () => {
+  it("floors stat × coefficient", () => {
+    expect(scalingDamageBonus(10, 1)).toBe(10); // силовой двуруч 1×STR
+    expect(scalingDamageBonus(10, 0.5)).toBe(5); // силовой одноруч 0.5×STR
+    expect(scalingDamageBonus(7, 0.25)).toBe(1); // ловкостный одноруч floor(1.75)=1
+    expect(scalingDamageBonus(9, 0.5)).toBe(4); // floor(4.5)=4
   });
 });
 

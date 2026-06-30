@@ -2,6 +2,7 @@ export * from "./types";
 export * from "./config";
 export * from "./tiers";
 export * from "./derived";
+export * from "./dice";
 export * from "./combat";
 export * from "./bubble";
 export * from "./reputation";

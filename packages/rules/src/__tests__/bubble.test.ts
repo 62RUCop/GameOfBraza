@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { bubblePersistChance, resolveBubbleHit } from "../bubble.js";
+import { bubblePersistChance, resolveBubbleHit, resolveBubbleRoll } from "../bubble.js";
 import { DEFAULT_RULE_CONFIG } from "../config.js";
 
 const cfg = DEFAULT_RULE_CONFIG;
@@ -34,5 +34,31 @@ describe("resolveBubbleHit", () => {
     const next = resolveBubbleHit(active, 30, cfg);
     expect(next.active).toBe(true);
     expect(next.persistChance).toBe(20);
+  });
+});
+
+describe("resolveBubbleRoll", () => {
+  // 3 заряда → порог 30
+  it("спадает, когда d100 ≥ порога (граница входит в падение)", () => {
+    expect(resolveBubbleRoll(3, 30, cfg)).toEqual({ fell: true, threshold: 30, nextCharges: 0 });
+    expect(resolveBubbleRoll(3, 99, cfg).fell).toBe(true);
+  });
+
+  it("устаивает, когда d100 < порога, и тратит заряд (min 1)", () => {
+    expect(resolveBubbleRoll(3, 29, cfg)).toEqual({ fell: false, threshold: 30, nextCharges: 2 });
+  });
+
+  it("при устоявшем бабле заряды не опускаются ниже 1", () => {
+    expect(resolveBubbleRoll(1, 5, cfg)).toEqual({ fell: false, threshold: 10, nextCharges: 1 });
+  });
+
+  it("порог ограничен 100: при ≥10 зарядах спадает только на натуральной 100", () => {
+    expect(resolveBubbleRoll(10, 99, cfg).fell).toBe(false);
+    expect(resolveBubbleRoll(10, 100, cfg).fell).toBe(true);
+    expect(resolveBubbleRoll(15, 100, cfg)).toEqual({ fell: true, threshold: 100, nextCharges: 0 });
+  });
+
+  it("0 зарядов → порог 0 → спадает при любом броске", () => {
+    expect(resolveBubbleRoll(0, 1, cfg).fell).toBe(true);
   });
 });

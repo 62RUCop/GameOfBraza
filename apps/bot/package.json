@@ -11,6 +11,9 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
+    "@gob/core": "workspace:*",
+    "@gob/db": "workspace:*",
+    "@gob/rules": "workspace:*",
     "dotenv": "^16.6.1",
     "grammy": "^1.30.0",
     "zod": "^3.24.1"

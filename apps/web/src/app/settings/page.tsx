@@ -1,13 +1,20 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import { useSession } from "next-auth/react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { cn } from "@gob/ui";
-import { updateName, updatePassword } from "@/actions/profile";
+import type { TelegramLinkStatus } from "@gob/core";
+import {
+  updateName,
+  updatePassword,
+  getTelegramLinkStatus,
+  createTelegramLinkCode,
+  removeTelegramLink,
+} from "@/actions/profile";
 
 const ThemeToggleNoSSR = dynamic(
   () => import("@/components/theme-toggle").then((m) => m.ThemeToggle),
@@ -160,6 +167,133 @@ function Field({
   );
 }
 
+// ── Telegram link ──────────────────────────────────────────────────────────────
+
+interface LinkCode {
+  code: string;
+  expiresAt: string;
+  ttlMinutes: number;
+}
+
+function TelegramSection() {
+  const [status, setStatus] = useState<TelegramLinkStatus | null>(null);
+  const [code, setCode] = useState<LinkCode | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  // Имя бота для кликабельного deep-link (необязательно; иначе показываем только код).
+  const botUsername = process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME;
+
+  const refresh = async () => {
+    const res = await getTelegramLinkStatus();
+    if ("error" in res) return;
+    setStatus(res);
+  };
+
+  useEffect(() => {
+    void refresh();
+  }, []);
+
+  const onGenerate = async () => {
+    setBusy(true);
+    setError(null);
+    const res = await createTelegramLinkCode();
+    setBusy(false);
+    if ("error" in res) {
+      setError(res.error);
+      return;
+    }
+    setCode(res);
+  };
+
+  const onUnlink = async () => {
+    setBusy(true);
+    setError(null);
+    const res = await removeTelegramLink();
+    setBusy(false);
+    if ("error" in res) {
+      setError(res.error);
+      return;
+    }
+    setCode(null);
+    await refresh();
+  };
+
+  const onCopy = async () => {
+    if (!code) return;
+    try {
+      await navigator.clipboard.writeText(`/start ${code.code}`);
+      setCopied(true);
+      setTimeout(() => { setCopied(false); }, 1500);
+    } catch {
+      // буфер обмена недоступен — не критично, код виден на экране
+    }
+  };
+
+  const deepLink = code && botUsername ? `https://t.me/${botUsername}?start=${code.code}` : null;
+
+  return (
+    <section className="space-y-4">
+      <h2 className="text-base font-semibold">Telegram-бот</h2>
+      <p className="text-sm text-muted-foreground">
+        Привяжите аккаунт к боту, чтобы смотреть лист и менять текущие значения прямо в Telegram.
+      </p>
+
+      {status?.linked ? (
+        <div className="flex items-center gap-3">
+          <span className="inline-flex items-center gap-1.5 rounded-md bg-green-500/10 px-2 py-1 text-sm text-green-600 dark:text-green-400">
+            ● Привязано
+          </span>
+          <button
+            type="button"
+            onClick={() => void onUnlink()}
+            disabled={busy}
+            className={cn(
+              "rounded-md border px-3 py-1.5 text-sm",
+              "hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed",
+            )}
+          >
+            Отвязать
+          </button>
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={() => void onGenerate()}
+          disabled={busy}
+          className={cn(
+            "rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground",
+            "hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed",
+          )}
+        >
+          {busy ? "Генерация…" : "Сгенерировать код привязки"}
+        </button>
+      )}
+
+      {code && (
+        <div className="space-y-2 rounded-md border bg-muted/40 p-4">
+          <p className="text-sm">Отправьте боту команду:</p>
+          <div className="flex flex-wrap items-center gap-2">
+            <code className="rounded bg-background px-2 py-1 font-mono text-sm">/start {code.code}</code>
+            <button type="button" onClick={() => void onCopy()} className="text-xs text-primary underline">
+              {copied ? "Скопировано" : "Копировать"}
+            </button>
+          </div>
+          {deepLink && (
+            <a href={deepLink} target="_blank" rel="noreferrer" className="inline-block text-sm text-primary underline">
+              Открыть в Telegram
+            </a>
+          )}
+          <p className="text-xs text-muted-foreground">Код действует {code.ttlMinutes} минут.</p>
+        </div>
+      )}
+
+      {error && <p className="text-sm text-destructive">{error}</p>}
+    </section>
+  );
+}
+
 // ── Page ─────────────────────────────────────────────────────────────────────
 
 export default function SettingsPage() {
@@ -169,6 +303,8 @@ export default function SettingsPage() {
       <NameSection />
       <hr className="border-border" />
       <PasswordSection />
+      <hr className="border-border" />
+      <TelegramSection />
       <hr className="border-border" />
       <section className="space-y-4">
         <h2 className="text-base font-semibold">Тема</h2>

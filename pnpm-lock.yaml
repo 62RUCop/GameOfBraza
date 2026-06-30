@@ -20,6 +20,15 @@ importers:
 
   apps/bot:
     dependencies:
+      '@gob/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@gob/db':
+        specifier: workspace:*
+        version: link:../../packages/db
+      '@gob/rules':
+        specifier: workspace:*
+        version: link:../../packages/rules
       dotenv:
         specifier: ^16.6.1
         version: 16.6.1
@@ -54,6 +63,9 @@ importers:
       '@auth/prisma-adapter':
         specifier: ^2.7.4
         version: 2.11.2(@prisma/client@6.19.3(prisma@6.19.3(typescript@5.9.3))(typescript@5.9.3))
+      '@gob/core':
+        specifier: workspace:*
+        version: link:../../packages/core
       '@gob/db':
         specifier: workspace:*
         version: link:../../packages/db
@@ -179,6 +191,9 @@ importers:
       '@gob/config':
         specifier: workspace:*
         version: link:../config
+      '@types/node':
+        specifier: ^22.10.7
+        version: 22.20.0
       eslint:
         specifier: ^10.5.0
         version: 10.5.0(jiti@2.7.0)

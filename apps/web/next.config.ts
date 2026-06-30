@@ -9,7 +9,7 @@ const nextConfig: NextConfig = {
   // В монорепо трейсинг файлов должен идти от корня workspace, иначе standalone
   // не подхватит зависимости из packages/* и hoisted node_modules.
   outputFileTracingRoot: path.join(__dirname, "../../"),
-  transpilePackages: ["@gob/ui", "@gob/rules", "@gob/db"],
+  transpilePackages: ["@gob/ui", "@gob/rules", "@gob/db", "@gob/core"],
 };
 
 // PWA service worker (Serwist). Оборачиваем конфиг, не затирая standalone-трейсинг.
